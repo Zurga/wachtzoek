@@ -30,19 +30,24 @@ def parsexml(xml):
             return c_dict
         return {}
 
-    with open(xml) as file:
-        raw = file.read().replace('<?xml version="1.0" encoding="UTF-8"?>', '')
-        try:
-            tree = etree.parse(parser=parser)
-        except:
-            print(xml, 'failed')
-            return []
+    try:
+        tree = etree.parse(xml, parser=parser)
+    except:
+        print(Exception)
+        print(xml, 'failed')
+        return []
     print('opened', xml)
-    return [get_fields(text) for child in tree.iterchildren()
-            for text in child.itertext()]
+    t = time.time()
+    parsed = (get_fields(text) for child in tree.getroot().iterchildren()
+              for text in child.itertext())
+    print('parsing took', time.time() -t )
+    print('writing to disk')
+    # RENS HIER KOMT JE CODE JONGE!
 
 p = Pool(4)
-folder = '/mnt/Telegraaf/'
+folder = '/home/jim/data/'
+t = time.time()
 files = [os.path.abspath(folder+f) for f in os.listdir(os.path.abspath(folder))
              if f[-3:] == 'xml']
-dicts = p.map(parsexml, files)
+p.map(parsexml, files)
+print(time.time() - t)
