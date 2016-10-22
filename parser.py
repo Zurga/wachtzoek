@@ -43,11 +43,12 @@ class Worker(Process):
             if xml is None:
                 break
 
+            tag = '{http://www.policticalmashup.nl}root'
             t = time.time()
-            tree = etree.iterparse(xml, events=('end',), tag='root')
+            tree = etree.iterparse(xml, events=('end',), tag=tag)
             parsed = []
             for event, elem in tree:
-                parsed.append(get_fields(list(elem.itertext())))
+                parsed.append(self.get_fields(list(elem.itertext())))
                 elem.clear()
             print('doing', xml)
             self.out_q.put(parsed)
