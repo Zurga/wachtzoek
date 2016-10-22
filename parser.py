@@ -75,7 +75,8 @@ try:
 except:
     print('index did not exist')
 
-folder = '/home/jim/data/'
+folder = input('Geef de naam van de data folder')
+# folder = '/home/jim/data/'
 t = time.time()
 files = [os.path.abspath(folder+f) for f in os.listdir(os.path.abspath(folder))
          if f[-3:] == 'xml']
