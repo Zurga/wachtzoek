@@ -1,0 +1,95 @@
+body {
+    background-color: #f9fbff;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+.search-advanced {
+    width: 30em;
+}
+
+.advanced-input {
+    padding: 3px;
+    padding-bottom: 1em;
+    opacity: 0.75;
+}
+
+.search-result {
+    padding-top: 0.5em;
+    height: 13em;
+    border-bottom: 3px solid grey;
+}
+
+.actual-advanced-search {
+    padding-right: 2em;
+}
+
+.main-search {
+    width: 20em;
+}
+
+.search-title {
+    padding: 0;
+}
+
+.facets {
+    padding-top: 0.5em;
+    background-color: white;
+    border-right: 1px solid rgba(220,220,220, 0.5);
+}
+
+.resultlist {
+    padding-top: 0.5em;
+    padding-left: 2em;
+    padding-right: 0;
+    margin-right: -0.5em;
+    margin-left: 0;
+    background-color: white;
+}
+
+.wordcloud {
+    margin-left: 0.5em;
+    margin-right: 2em;
+    padding: 0;
+    cursor: default;
+    background-color: white;
+}
+
+.results {
+    padding-top: 1.6em;
+    /*height: 100em; // FIX THIS!*/
+    margin: 0;
+    /*background-color: white;*/
+}
+
+.resultitem {
+    margin-top: 0;
+    padding-top: 0;
+    padding-left: 0.1em;
+    margin-bottom: 3em;
+}
+
+h1, h2 {
+    color: #25435A;
+}
+
+h3 {
+    font-weight: normal;
+    padding-bottom: 0;
+    margin-bottom: 0.2em;
+    color: #5B8EBF;
+}
+
+h5 {
+    font-weight: normal;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+#timeline {
+    padding: 0;
+    padding-top: 1em;
+    margin-right: 1.0em;
+    width: 40%;
+    max-width: 40%;
+}
