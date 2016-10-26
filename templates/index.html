@@ -1,16 +1,20 @@
-<html>
-    <body>
-        <form>
-            {% for widget in form %}
-            <label>{{widget.label}}</label> {{widget}} <span> {{widget.description}} </span>
-            {% endfor %}
-        </form>
-        <form>
-            {% for widget in faces %}
-            <label>{{widget.label}}</label> {{widget}} <span> {{widget.description}} </span>
-            {% endfor %}
-        </form>
-    </body>
+{% include 'header.html' %}
+<body class="c-text">
+    <main class="u-center-block">
+        <div class="u-center-block__content main-search">
+            <h1 class="c-heading search-title">Telegraaf Search</h1>
+            <form action="/api/suggest" method="POST">
+                <div class="o-form-element">
+                    <div class="c-input-group">
+                        <div class="o-field">
+                            <input name="query" class="c-field">
+                        </div>
+                        <button type="submit" class="c-button c-button--brand"><i class="fa fa-fw fa-search c-icon"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+</body>
+{% include 'scripts.html' %}
 </html>
-
-    pass

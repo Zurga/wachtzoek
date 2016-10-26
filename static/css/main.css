@@ -1,7 +1,7 @@
 body {
     background-color: #f9fbff;
     overflow-x: hidden;
-    overflow-y: hidden;
+    /*overflow-y: hidden;*/
 }
 
 .search-advanced {
@@ -9,9 +9,8 @@ body {
 }
 
 .advanced-input {
-    padding: 3px;
-    padding-bottom: 1em;
     opacity: 0.75;
+    padding-right: 5px;
 }
 
 .search-result {
@@ -22,9 +21,11 @@ body {
 
 .actual-advanced-search {
     padding-right: 2em;
+    margin-right: -1em;
 }
 
 .main-search {
+    margin-top: 25em;
     width: 20em;
 }
 
@@ -42,21 +43,19 @@ body {
     padding-top: 0.5em;
     padding-left: 2em;
     padding-right: 0;
-    margin-right: -0.5em;
     margin-left: 0;
     background-color: white;
+    max-width: 65%;
 }
 
 .wordcloud {
-    margin-left: 0.5em;
-    margin-right: 2em;
     padding: 0;
     cursor: default;
     background-color: white;
 }
 
 .results {
-    padding-top: 1.6em;
+    padding-top: 2.8em;
     /*height: 100em; // FIX THIS!*/
     margin: 0;
     /*background-color: white;*/
@@ -86,10 +85,23 @@ h5 {
     padding-top: 0;
 }
 
+.filler-oh-boy-this-is-hacky {
+    background-color: white;
+}
+
+/*TIMELINE*/
+
 #timeline {
     padding: 0;
-    padding-top: 1em;
-    margin-right: 1.0em;
-    width: 40%;
-    max-width: 40%;
+    padding-left: 0.3em;
+    padding-top: 2.5em;
+}
+
+.c3-axis-x .tick {
+    font-size: 5pt;
+}
+
+/*Pagination*/
+.c-pagination {
+    border-top: 3px solid grey;
 }
