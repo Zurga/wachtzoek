@@ -3,10 +3,14 @@ from lxml import etree
 import json
 from multiprocessing import Process
 from multiprocessing import Queue
+from threading import Thread
 import os
 import time
 import gc
-from pyelasticsearch import ElasticSearch, utils
+from elasticsearch import Elasticsearch, helpers
+import nltk
+import re
+import string
 
 
 class Worker(Process):
@@ -16,6 +20,15 @@ class Worker(Process):
         self.out_q = out_q
         self.last = last
         self.num_p = num_p
+        self.tokenize = nltk.word_tokenize
+        self.stopwords = nltk.corpus.stopwords.words('dutch')
+        self.table = str.maketrans(string.punctuation,
+                                   chr(0) * len(string.punctuation))
+
+    def tokenize(self, text):
+        for token in text.split():
+            if token.isalpha():
+                yield token
 
     def get_fields(self, parsed):
         if len(parsed) > 3:
@@ -28,7 +41,14 @@ class Worker(Process):
                 text = parsed[3]
             else:
                 title = parsed[3]
-                text = ' '.join(parsed[4:])
+                '''
+                text = ' '.join(token for text in parsed[4:]
+                t1 = time.time()
+                                for token in text.split())
+                t2 = time.time()
+                '''
+                text = ' '.join(t for t in parsed[4:])
+                #print('second', time.time() -t2)
 
             c_dict = {
                 'date': date,
@@ -37,7 +57,11 @@ class Worker(Process):
                 'title': title,
                 'text': text,
             }
-            return c_dict
+            return {'_op_type': 'index',
+                    '_type': 'document',
+                    'index': 'telegraaf',
+                    'doc': c_dict
+                    }
         return {}
 
     def run(self):
@@ -49,14 +73,12 @@ class Worker(Process):
                 print('Stopping Worker, blegh i am ded')
                 gc.collect()
                 self.terminate()
-                sys.exit()
 
             tag = '{http://www.politicalmashup.nl}root'
             parsed = []
-            t = time.time()
             tree = etree.iterparse(xml, events=('end',), tag=tag)
 
-            #print('doing', xml)
+            # print('doing', xml)
 
             for event, elem in tree:
                 parsed.append(self.get_fields(list(elem.itertext())))
@@ -81,19 +103,23 @@ class StoreWorker(Process):
 
     def run(self):
         while True:
-            articles = self.out_q.get()
+            articles, xml = self.out_q.get()
             if articles is None:
                 print('Stopping store')
                 break
-            print('articles inserting', len(articles))
-            for chunk in utils.bulk_chunks([es.index_op(a) for a in articles], docs_per_chunk=200):
-                es.bulk(chunk, index='telegraaf', doc_type='artikel')
-                del chunk
-            del articles
-            gc.collect()
-            print('stored something')
+            print('articles inserting', len(articles), 'from', xml)
 
-es = ElasticSearch('http://localhost:9200')
+            helpers.parallel_bulk(es, articles, thread_count=10,
+                                  chunk_size=250)
+            '''
+            for chunk in utils.bulk_chunks(articles, docs_per_chunk=200):
+                es.bulk(chunk, index='telegraaf', doc_type='artikel')
+            '''
+            print('stored something', xml)
+
+
+
+es = Elasticsearch('http://localhost:9200')
 try:
     es.delete_index('telegraaf')
 except:
@@ -102,12 +128,12 @@ except:
 folder = input('Geef de naam van de data folder')
 if not folder.endswith('/'):
     folder = folder + '/'
-# folder = '/home/jim/data/'
+folder = '/home/jim/data/'
 t = time.time()
 files = sorted([os.path.abspath(folder+f) for f in os.listdir(os.path.abspath(folder))
          if f[-3:] == 'xml'])
 
-num_p = 3
+num_p = 2
 in_q = Queue()
 out_q = Queue()
 workers = [Worker(in_q, out_q, files[-1], num_p) for _ in range(num_p)]
