@@ -16,34 +16,9 @@ app = Flask(__name__, static_path='/static/')
 def index():
     return render_template('index.html')
 
-@app.route('/api/suggest', methods=['POST'])
+@app.route('/result', methods=['POST'])
 def suggest():
-    print(request.form)
-    # query_string = request.form['query']
-    #
-    # # TODO write a DSL-builder helper for this
-    # dsl = {}
-    # dsl['query'] = {}
-    # dsl['query']['query_string'] = {}
-    # dsl['query']['query_string']['query'] = query_string
-    #
-    # response = requests.post(ELASTIC,
-    #                         data=json.dumps(dsl)
-    #                         ).text
-    # print(response)
-
-    # # TODO spreek Elasticsearch aan met query
-    # # TODO summerize elk resultaat met gensim
-    # pass
-    # return render_template('result.html')
-    # # hier komt code die zoekt met behulp van elasticsearch
-    # # en de json die er uit angular komt.
-    # pass
-
-    # -------------------- #
-    # Voor nu fake returns #
-
-    docs = ["Juliana eet een jodenkoeck"]*4
+    docs = ["Juliana eet een jodenkoeck"]*6
     summaries = ["""
     Lorem ipsum dolor sit amet, consectetur adipiscing elit.
     Nam venenatis sed urna quis viverra.
@@ -70,12 +45,15 @@ def suggest():
         'items': items,
         'amount': len([i for i in items]),
         'wordcloud': wordcloud,
+        'query_string': request.form.get('query')
     }
 
     return render_template('result.html',
                            data=data)
 
-@app.rout('/api/search', methods=['POST'])
+
+"""
+@app.route('/api/search', methods=['POST'])
 def search():
     searchterm = request.form.get('query', '')
     startdate = request.form.get('startdate', '1918')
@@ -107,6 +85,7 @@ def search():
                 }
             }
     pass
+"""
 
 if __name__ == '__main__':
     app.run(debug=True)
