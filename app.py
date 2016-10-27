@@ -17,7 +17,10 @@ ELASTICPORT = 9200
 ELASTIC = 'http://localhost:' + str(ELASTICPORT) + '/_search'
 WORDCLOUD_SIZE = 15
 SUMMARIES_SIZE = 15
-PROCESS_SIZE = 100 # Prevents running algorithms on entire db
+
+# Prevents program from doing stuff for entire database.
+# Also sets amount of pagination items to /10.
+RESULT_SIZE = 100
 
 # Check if Elasticsearch is running
 r = requests.get(ELASTIC)
@@ -116,11 +119,12 @@ def index():
 
 @app.route('/result', methods=['POST'])
 def suggest():
+    print(request.form)
     query = ' '.join(tokenizer(request.form.get('query', '')))
-    startdate = request.form.get('startdate', '1918')
-    enddate = request.form.get('enddate', '1994')
+    startdate = request.form.get('from', 1900)
+    enddate = request.form.get('to', 1994)
     title = request.form.get('title', '')
-    current_page = request.form.get('current_page', 1) - 1
+    current_page = int(request.form.get('current_page', 1)) - 1
 
     if not query or len(query) == 1:
         pass
@@ -139,7 +143,7 @@ def suggest():
 
         ],
         "from": 0,
-        "size": 50,
+        "size": 500,
         "sort": {
             "_score": {
                 "order": "desc"
@@ -149,24 +153,30 @@ def suggest():
     })
 
     # Retrieve documents
-    docs = doc_getter(res)
-    amount = len(docs)
+    all_docs = doc_getter(res)
+    amount = len(all_docs)
+    docs = all_docs[:RESULT_SIZE]
 
     # Pagination
-    p = paginate(docs[:PROCESS_SIZE])
+    p = paginate(docs)
     pagination_length = len(p)
 
-
-    titles = [i.get('title') for i in docs]
+    # Only current page!
+    results = p[current_page]
+    titles = [i.get('title') for i in results]
     titles = [t if len(t) else '<No title available.>' for t in titles]
-    texts = [i.get('text') for i in docs]
+    texts = [i.get('text') for i in results]
     summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
+    items = list(zip(titles, summaries))
 
     timeline_years = ["2010", "2011", "2012", "2013"]
     timeline_data = [103, 99, 66, 200]
 
-    wordcloud = wordcloud_gen(summaries, query)
-    items = list(zip(titles, summaries))
+    # For RESULT_SIZE.
+    wtexts = [i.get('text') for i in docs]
+    wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
+    wordcloud = wordcloud_gen(wsummaries, query)
+
 
     data = {
         'timeline_years': timeline_years,
@@ -174,9 +184,12 @@ def suggest():
         'items': items,
         'amount': amount,
         'wordcloud': wordcloud,
-        'query_string': request.form.get('query'),
-        'pagination_length': pagination,
-        'pagination_current': current_page,
+        'query_string': query,
+        'from_strng': startdate,
+        'to_string': enddate,
+        'title_string': title,
+        'pagination_length': list(range(1, pagination_length+1)),
+        'pagination_current': current_page + 1,
     }
 
     return render_template('result.html',
