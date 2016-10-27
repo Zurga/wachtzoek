@@ -117,7 +117,7 @@ indices_client.create('telegraaf', {'settings': settings,
 folder = input('Geef de naam van de data folder: ')
 if not folder.endswith('/'):
     folder = folder + '/'
-folder = '/home/jim/data/'
+
 files = sorted([os.path.abspath(folder+f) for f in
                 os.listdir(os.path.abspath(folder))
                 if f[-3:] == 'xml'])
