@@ -4,6 +4,12 @@ body {
     /*overflow-y: hidden;*/
 }
 
+.c-button {
+    padding: 0;
+    padding-left: 0.32em;
+    padding-right: 0.25em;
+}
+
 .search-advanced {
     width: 30em;
 }
@@ -49,6 +55,7 @@ body {
 }
 
 .wordcloud {
+    min-height: 750px;
     padding: 0;
     cursor: default;
     background-color: white;
@@ -98,7 +105,7 @@ h5 {
 }
 
 .c3-axis-x .tick {
-    font-size: 5pt;
+    font-size: 8pt;
 }
 
 /*Pagination*/
