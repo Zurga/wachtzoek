@@ -1,30 +1,21 @@
-import sys
-from collections import deque
+import http
 from lxml import etree
-import json
 from multiprocessing import Process
 from multiprocessing import Queue
-from threading import Thread
 import os
 import time
 import gc
-from elasticsearch import Elasticsearch, helpers
-import nltk
-import re
-import string
+from elasticsearch import Elasticsearch, helpers, \
+    client
 
 
 class Worker(Process):
-    def __init__(self, in_q, out_q, last, num_p):
+    def __init__(self, in_q, last, num_p):
         super(Worker, self).__init__()
         self.in_q = in_q
-        self.out_q = out_q
         self.last = last
+        self.num_docs = 0
         self.num_p = num_p
-        self.tokenize = nltk.word_tokenize
-        self.stopwords = nltk.corpus.stopwords.words('dutch')
-        self.table = str.maketrans(string.punctuation,
-                                   chr(0) * len(string.punctuation))
 
     def tokenize(self, text):
         for token in text.split():
@@ -32,34 +23,30 @@ class Worker(Process):
                 yield token
 
     def get_fields(self, parsed):
-        if len(parsed) > 3:
-            date = parsed[0]
-            typ = parsed[1]
-            i = parsed[2]
-            title = ''
+#        if len(parsed) > 3:
+        date = parsed[0]
+        typ = parsed[1]
+        i = parsed[2]
+        title = ''
 
-            if len(parsed) == 4:
-                text = parsed[3]
-            else:
-                title = parsed[3]
-                text = ' '.join(t for t in parsed[4:])
-
-            c_dict = {
-                'date': date,
-                'type': typ,
-                'id': i,
-                'title': title,
-                'text': text,
-            }
+        if len(parsed) == 4:
+            text = parsed[3]
         else:
-            c_dict = {}
+            title = parsed[3]
+            text = ' '.join(t for t in parsed[4:])
+
+        c_dict = {
+            'date': date,
+            'type': typ,
+            'id': i,
+            'title': title,
+            'text': text,
+        }
         return {'_op_type': 'index',
                 '_type': 'document',
                 '_index': 'telegraaf',
-                '_source': {'doc': c_dict,
-                            '_op_type': 'index'}
+                '_source': c_dict,
                 }
-
 
     def run(self):
         print('started')
@@ -70,94 +57,91 @@ class Worker(Process):
                 print('Stopping Worker, blegh i am ded')
                 break
 
+
             tag = '{http://www.politicalmashup.nl}root'
-            parsed = []
             tree = etree.iterparse(xml, events=('end',), tag=tag)
             t = time.time()
+            actions = []
 
             print('doing', xml)
-            actions = [self.get_fields(list(elem.itertext())) for
-                       event, elem in tree]
-            print(len(actions))
-            for ret in helpers.parallel_bulk(es, actions, thread_count=2,
-                                             chunk_size=250):
-                del ret
-            '''
             for event, elem in tree:
-                parsed.append(self.get_fields(list(elem.itertext())))
-                elem.clear()
-                '''
+                parsed = list(elem.itertext())
+                if len(parsed) > 3:
+                    actions.append(self.get_fields(parsed))
+
+            #actions = [self.get_fields(list(elem.itertext())) for
+            #           event, elem in tree]
+
+            self.num_docs += len(actions)
+
+            try:
+                for ret in helpers.parallel_bulk(es, actions, thread_count=2,
+                                                chunk_size=200):
+                    del ret
+            except:
+                pass
+
 
             del tree
+            del actions
             gc.collect()
-            self.out_q.put((parsed, xml))
             if self.last == xml:
-                print(self.last, xml)
-                print('sending none to store')
-                self.out_q.put((None,None))
                 for i in range(self.num_p):
                     self.in_q.put(None)
             print('did', xml, 'in', time.time() - t, 'seconds')
 
-
-class StoreWorker(Process):
-    def __init__(self, out_q):
-        super(StoreWorker, self).__init__()
-        self.out_q = out_q
-        self.stored = 0
-
-    def run(self):
-        while True:
-            articles, xml = self.out_q.get()
-            if articles is None:
-                print('Stopping store')
-                break
-            print('articles inserting', len(articles), 'from', xml)
-            self.stored += len(articles)
-
-            for res in helpers.parallel_bulk(es, articles, thread_count=4,
-                                             chunk_size=250):
-                del res
-
-            '''
-            for chunk in utils.bulk_chunks(articles, docs_per_chunk=200):
-                es.bulk(chunk, index='telegraaf', doc_type='artikel')
-            '''
-            print('stored something', xml)
-
-        print('stored', self.stored, 'documents')
-
 es = Elasticsearch('http://localhost:9200')
+indices_client = client.IndicesClient(es)
+if indices_client.exists('telegraaf'):
+    print('deleting index')
+    indices_client.delete('telegraaf')
+print('making index')
+settings = {"index": {
+            "refresh_interval": -1,
+            'number_of_replicas': 0
+            },
+        }
 
-folder = input('Geef de naam van de data folder')
+mappings = {"document":{
+    "properties":{
+        "title":{"type":"string"},
+        "text":{"type":"string"},
+        "date":{"type":"date","format":"yyyy-MM-dd"},
+        "type":{"type":"string"},
+            }
+        }
+    }
+indices_client.create('telegraaf', {'settings': settings,
+                                    'mappings': mappings})
+
+folder = input('Geef de naam van de data folder: ')
 if not folder.endswith('/'):
     folder = folder + '/'
 folder = '/home/jim/data/'
-t = time.time()
 files = sorted([os.path.abspath(folder+f) for f in
                 os.listdir(os.path.abspath(folder))
                 if f[-3:] == 'xml'])
 
 num_p = 2
 in_q = Queue()
-out_q = Queue()
-workers = [Worker(in_q, out_q, files[-1], num_p) for _ in range(num_p)]
-#storer = StoreWorker(out_q)
+workers = [Worker(in_q, files[-1], num_p) for _ in range(num_p)]
 
 for f in files:
     in_q.put(f)
 
+print('Going for it!')
+t = time.time()
 for i in range(num_p):
     workers[i].start()
-
-print('Going for it!')
-#storer.start()
 
 for worker in workers:
     worker.join()
 
-#storer.join()
+num_docs = sum(w.num_docs for w in workers)
+print(num_docs, 'documenten geindexeerd')
+print('Nog even goed instellen :D')
+indices_client.put_settings({"index": {"refresh_interval": "1s",
+                                       'number_of_replicas': 0}}, 'telegraaf')
 print('We zijn klaar, joeeeeeeeeeee')
 
-#out_q.put(None)
 print(time.time() - t)
