@@ -28,11 +28,12 @@ if not r:
 from elasticsearch import Elasticsearch, client
 es = Elasticsearch()
 indices_client = client.IndicesClient(es)
+if not indices_client.exists('telegraaf'):
+    # creating index for scores
+    indices_client.create('score')
 
 app = Flask(__name__, static_path='/static/')
 
-# creating index for scores
-indices_client.create('score')
 
 def insert_score():
     # dict = {query: [(id, 1)]}
@@ -48,8 +49,6 @@ def tokenizer(s):
                 and len(i) > 1
                 and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
-
-
 
 
 def doc_getter(res):
@@ -185,20 +184,23 @@ def suggest():
 
 
 
-"""
 @app.route('/api/search', methods=['POST'])
 def search():
-    searchterm = request.form.get('query', '')
-    startdate = request.form.get('startdate', '1918')
-    enddate = request.form.get('enddate', '1994')
-    title = request.form.get('title', '')
+    if not request.form:
+        data = request.values
+    else:
+        data = request.values
+    searchterm = data.get('query', 'Duits')
+    startdate = data.get('startdate', '1918-01-10')
+    enddate = data.get('enddate', '1990-01-01')
+    title = data.get('title', '')
 
     query = {"query": {
                 "filtered": {
                     "query": {
                         # match the following input in the fiels
                         "multi_match": {
-                            "query": , searchterm
+                            "query": searchterm,
                             "fields": ["text", "title"]
                             }
                     },
@@ -212,13 +214,42 @@ def search():
                                 }
                             },
                         #!!! not sure, filter on the title of term
-                        'term' : {'title': title}
+                        #'term' : {'title': title}
                         }
                     }
                 }
             }
-    pass
-"""
+    print('query',query)
+    result = es.search(index='telegraaf', body=query)
+    print('result',result)
+    return result
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+'''
+query = {"query": {
+            "filtered": {
+                "query": {
+                    # match the following input in the fiels
+                    "multi_match": {
+                        "query": searchterm,
+                        "fields": ["text", "title"]
+                        }
+                },
+                "filter" :{
+                    # filter on date range gte >=, lte <=
+                    "range": {
+                        #!!! not sure if name is correct
+                        "date": {
+                            "gte": startdate,
+                            "lte": enddate
+                            }
+                        },
+                    #!!! not sure, filter on the title of term
+                    #'term' : {'title': title}
+                    }
+                }
+            }
+        }
+'''
