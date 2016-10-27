@@ -1,4 +1,5 @@
 import sys
+from collections import deque
 from lxml import etree
 import json
 from multiprocessing import Process
@@ -41,14 +42,7 @@ class Worker(Process):
                 text = parsed[3]
             else:
                 title = parsed[3]
-                '''
-                text = ' '.join(token for text in parsed[4:]
-                t1 = time.time()
-                                for token in text.split())
-                t2 = time.time()
-                '''
                 text = ' '.join(t for t in parsed[4:])
-                #print('second', time.time() -t2)
 
             c_dict = {
                 'date': date,
@@ -57,12 +51,15 @@ class Worker(Process):
                 'title': title,
                 'text': text,
             }
-            return {'_op_type': 'index',
-                    '_type': 'document',
-                    'index': 'telegraaf',
-                    'doc': c_dict
-                    }
-        return {}
+        else:
+            c_dict = {}
+        return {'_op_type': 'index',
+                '_type': 'document',
+                '_index': 'telegraaf',
+                '_source': {'doc': c_dict,
+                            '_op_type': 'index'}
+                }
+
 
     def run(self):
         print('started')
@@ -71,18 +68,25 @@ class Worker(Process):
             xml = self.in_q.get()
             if xml is None:
                 print('Stopping Worker, blegh i am ded')
-                gc.collect()
-                self.terminate()
+                break
 
             tag = '{http://www.politicalmashup.nl}root'
             parsed = []
             tree = etree.iterparse(xml, events=('end',), tag=tag)
+            t = time.time()
 
-            # print('doing', xml)
-
+            print('doing', xml)
+            actions = [self.get_fields(list(elem.itertext())) for
+                       event, elem in tree]
+            print(len(actions))
+            for ret in helpers.parallel_bulk(es, actions, thread_count=2,
+                                             chunk_size=250):
+                del ret
+            '''
             for event, elem in tree:
                 parsed.append(self.get_fields(list(elem.itertext())))
                 elem.clear()
+                '''
 
             del tree
             gc.collect()
@@ -93,13 +97,14 @@ class Worker(Process):
                 self.out_q.put((None,None))
                 for i in range(self.num_p):
                     self.in_q.put(None)
-            # print('did', xml, 'in', time.time() - t, 'seconds')
+            print('did', xml, 'in', time.time() - t, 'seconds')
 
 
 class StoreWorker(Process):
     def __init__(self, out_q):
         super(StoreWorker, self).__init__()
         self.out_q = out_q
+        self.stored = 0
 
     def run(self):
         while True:
@@ -108,36 +113,36 @@ class StoreWorker(Process):
                 print('Stopping store')
                 break
             print('articles inserting', len(articles), 'from', xml)
+            self.stored += len(articles)
 
-            helpers.parallel_bulk(es, articles, thread_count=10,
-                                  chunk_size=250)
+            for res in helpers.parallel_bulk(es, articles, thread_count=4,
+                                             chunk_size=250):
+                del res
+
             '''
             for chunk in utils.bulk_chunks(articles, docs_per_chunk=200):
                 es.bulk(chunk, index='telegraaf', doc_type='artikel')
             '''
             print('stored something', xml)
 
-
+        print('stored', self.stored, 'documents')
 
 es = Elasticsearch('http://localhost:9200')
-try:
-    es.delete_index('telegraaf')
-except:
-    print('index did not exist')
 
 folder = input('Geef de naam van de data folder')
 if not folder.endswith('/'):
     folder = folder + '/'
 folder = '/home/jim/data/'
 t = time.time()
-files = sorted([os.path.abspath(folder+f) for f in os.listdir(os.path.abspath(folder))
-         if f[-3:] == 'xml'])
+files = sorted([os.path.abspath(folder+f) for f in
+                os.listdir(os.path.abspath(folder))
+                if f[-3:] == 'xml'])
 
 num_p = 2
 in_q = Queue()
 out_q = Queue()
 workers = [Worker(in_q, out_q, files[-1], num_p) for _ in range(num_p)]
-storer = StoreWorker(out_q)
+#storer = StoreWorker(out_q)
 
 for f in files:
     in_q.put(f)
@@ -146,13 +151,13 @@ for i in range(num_p):
     workers[i].start()
 
 print('Going for it!')
-storer.start()
+#storer.start()
 
 for worker in workers:
     worker.join()
 
-storer.join()
+#storer.join()
 print('We zijn klaar, joeeeeeeeeeee')
 
-out_q.put(None)
+#out_q.put(None)
 print(time.time() - t)
