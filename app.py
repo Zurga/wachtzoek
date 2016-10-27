@@ -28,10 +28,19 @@ if not r:
     exit()
 
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, client
 es = Elasticsearch()
+indices_client = client.IndicesClient(es)
 
 app = Flask(__name__, static_path='/static/')
+
+# creating index for scores
+indices_client.create('score')
+
+def insert_score():
+    # dict = {query: [(id, 1)]}
+    scoredict = request.form
+    es.index(index='score', body=scoredict)
 
 def tokenizer(s):
     """
@@ -186,6 +195,7 @@ def suggest():
 
     return render_template('result.html',
                            data=data)
+
 
 
 """
