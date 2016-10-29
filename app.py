@@ -38,10 +38,47 @@ if not indices_client.exists('telegraaf'):
 app = Flask(__name__, static_path='/static/')
 
 
+@app route('/api/score', methods=['POST'])
 def insert_score():
-    # dict = {query: [(id, 1)]}
+    #{query: query, judge: name, docID: doc, relevant: [1,0]}
+
     scoredict = request.form
     es.index(index='score', body=scoredict)
+
+def get_scores():
+    searchterm = request.form.get(query)
+
+    query = {
+    'query:{
+        'match': {
+            'query': searchterm
+            }
+        }
+    }
+    # get results based on the query
+    result = es.search(index=query)
+
+    # get judge id's for serach query
+    j1id = result['hits']['hits'][0][judge]
+    j2id = result['hits']['hits'][1][judge]
+
+    judge_query =
+    {
+        'query':{
+            'bool': {
+                'must': {
+                    "match": {
+                        "query": searchterm
+                    }
+                },
+                "filter": {}
+                    {"term": {"judge": [j1id,j2id]}}
+                }
+            }
+        }
+    }
+
+
 
 def tokenizer(s):
     """
