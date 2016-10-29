@@ -20,7 +20,7 @@ SUMMARIES_SIZE = 15
 
 # Prevents program from doing stuff for entire database.
 # Also sets amount of pagination items to /10.
-RESULT_SIZE = 100
+RESULT_SIZE = 10
 
 # Check if Elasticsearch is running
 r = requests.get(ELASTIC)
@@ -116,39 +116,58 @@ def index():
     return render_template('index.html')
 
 @app.route('/result', methods=['POST'])
-def suggest():
+def search():
     print(request.form)
-    query = ' '.join(tokenizer(request.form.get('query', '')))
-    startdate = request.form.get('from', 1900)
-    enddate = request.form.get('to', 1994)
+    searchterm = ' '.join(tokenizer(request.form.get('query', '')))
+
+    if not searchterm:
+        # TODO give feedback that the search failed
+        pass
+
+    startdate = request.form.get('from')
+    enddate= request.form.get('to', '1994')
     title = request.form.get('title', '')
     current_page = int(request.form.get('current_page', 1)) - 1
 
-    if not query or len(query) == 1:
-        pass
-
-    res = es.search(index = "telegraaf", body = {
-        "query": {
-            "filtered": {
-                "query": {
-                    "query_string": {
-                        "query": "{}".format(query)
+    query = {"query": {
+                "filtered": {
+                    "query": {
+                        # match the following input in the fiels
+                        "multi_match": {
+                            "query": searchterm,
+                            "fields": ["text", "title"]
+                            }
+                    },
+                    "filter" :{
+                        # filter on date range gte >=, lte <=
+                        "range": {
+                            #!!! not sure if name is correct
+                            "date": {
+                                "gte": '{}-01-01'.format(startdate if
+                                                         startdate else 1900),
+                                "lte": '{}-12-31'.format(enddate
+                                                         if enddate else 1994)
+                                }
+                            },
+                        #!!! not sure, filter on the title of term
+                        #'term' : {'title': title}
+                        }
                     }
-                }
+                },
+            "from": 0,
+            "size": RESULT_SIZE,
+            "sort": {
+                "_score": {
+                    "order": "desc"
             }
-        },
-        "fields": [
+        }
+    }
 
-        ],
-        "from": 0,
-        "size": 500,
-        "sort": {
-            "_score": {
-                "order": "desc"
-            }
-        },
-        "explain": False
-    })
+    print(query)
+
+    res = es.search(index="telegraaf", body=query)
+    docs = res['hits']['hits']
+
 
     # Retrieve documents
     all_docs = doc_getter(res)
@@ -173,7 +192,7 @@ def suggest():
     # For RESULT_SIZE.
     wtexts = [i.get('text') for i in docs]
     wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-    wordcloud = wordcloud_gen(wsummaries, query)
+    wordcloud = wordcloud_gen(wsummaries, searchterm)
 
 
     data = {
@@ -182,7 +201,7 @@ def suggest():
         'items': items,
         'amount': amount,
         'wordcloud': wordcloud,
-        'query_string': query,
+        'query_string': searchterm,
         'from_strng': startdate,
         'to_string': enddate,
         'title_string': title,
@@ -196,7 +215,7 @@ def suggest():
 
 
 @app.route('/api/search', methods=['POST'])
-def search():
+def old_search():
     if not request.form:
         data = request.values
     else:
