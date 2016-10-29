@@ -57,11 +57,11 @@ def insert_score():
             }
         }
     }
-    print(query)
     exists = es.search(index='score', body=query)
     if not exists['hits']['hits']:
         es.index(index='score', body=scoredict, doc_type='score')
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+    return json.dumps({'succes': False}), 200, {'ContentType':'application/json'}
 
 def tokenizer(s):
     """
@@ -212,8 +212,7 @@ def search(page):
     # For RESULT_SIZE.
     wtexts = [i.get('_source', {}).get('text', '') for i in docs]
     wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-    # wordcloud = wordcloud_gen(wsummaries, searchterm)
-    wordcloud = None
+    wordcloud = wordcloud_gen(wsummaries, searchterm)
 
 
     data = {
@@ -259,72 +258,50 @@ def modal():
 
     return render_template('modal.html', data=data)
 
-@app.route('/api/search', methods=['POST'])
-def old_search():
-    if not request.form:
-        data = request.values
-    else:
-        data = request.values
-    searchterm = data.get('query', 'Duits')
-    startdate = data.get('startdate', '1990-01-10')
-    enddate = data.get('enddate', '1990-12-01')
-    title = data.get('title', '')
+@app.route('/scores', methods=['POST'])
+def get_scores():
+    searchterm = request.form.get('query')
 
-    query = {"query": {
-                "filtered": {
-                    "query": {
-                        # match the following input in the fiels
-                        "multi_match": {
-                            "query": searchterm,
-                            "fields": ["text", "title"]
-                            }
-                    },
-                    "filter" :{
-                        # filter on date range gte >=, lte <=
-                        "range": {
-                            #!!! not sure if name is correct
-                            "date": {
-                                "gte": startdate,
-                                "lte": enddate
-                                }
-                            },
-                        #!!! not sure, filter on the title of term
-                        #'term' : {'title': title}
-                        }
-                    }
-                }
-            }
-    print('query',query)
-    result = es.search(index='telegraaf', body=query)
-    print('result',result)
-    return result
+    query = { 'query':{ 'match': { 'query': searchterm } } }
+    # get results based on the query
+    result = es.search(index='score', body=query)
+
+    # get judg[e id's for serach query
+    judges = {doc['judge'] for doc in result['hits']['hits']}
+    judge1 = judges[0]
+    judge2 = judges[1]
+
+    # get a dict with judge keys with
+    # their relevant labeled docs
+    # {j1:[d1,d4,d5],j2:[d2,d4]}
+    relevantdoc = {judge1:[], judge2:[]}
+    for hit in result['hits']['hits']:
+        if hit['relevant'] == 1:
+            relevantdoc[hit['judge']].append(hit['docID'])
+
+    docIDs = list(set(evaluated['docID'] for evaluated in result['hits']['hits']))
+
+    N11, N10, N01, N00 = 0
+    for docID in docIDs:
+        if docID in relevantdoc[judge1] and docID in relevantdoc[judge2]:
+            N11 += 1
+        if docID in relevantdoc[judge1] and docID not in relevantdoc[judge2]:
+            N10 += 1
+        if docID not in relevantdoc[judge1] and docID in relevantdoc[judge2]:
+            N01 += 1
+        if docID not in relevantdoc[judge1] and docID not in relevantdoc[judge2]:
+            N00 += 1
+    N = N11 + N10 + N01 + N00
+
+    # Calculate the Cohen's kappa
+    PA = (N11 + N00)/N
+    Pnonrel = (N01 + N10 + 2*N00)/(2*N)
+    Prel = (N10 + N01 + 2*N11)/(2*N)
+    PE = Pnonrel**2 + Prel**2
+    CohenKappa = (PA - PE)/(1 - PE)
+    return render_template('Kappa.html', data=CohenKappa)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
 
-'''
-query = {"query": {
-            "filtered": {
-                "query": {
-                    # match the following input in the fiels
-                    "multi_match": {
-                        "query": searchterm,
-                        "fields": ["text", "title"]
-                        }
-                },
-                "filter" :{
-                    # filter on date range gte >=, lte <=
-                    "range": {
-                        #!!! not sure if name is correct
-                        "date": {
-                            "gte": startdate,
-                            "lte": enddate
-                            }
-                        },
-                    #!!! not sure, filter on the title of term
-                    #'term' : {'title': title}
-                    }
-                }
-            }
-        }
-'''
