@@ -1,0 +1,30 @@
+{% set doc_id = data['doc_id'] %}
+{% set title = data['title'] %}
+{% set date = data['date'] %}
+{% set text = data['text'] %}
+
+
+<div id="modal-overall">
+    <input type="hidden" id="doc_id" value={{doc_id}}>
+    <div class="c-overlay"></div>
+    <div class="o-modal o-modal u-highest">
+      <div class="c-card">
+        <header class="c-card__header">
+          <button type="button" class="c-button c-button--close" onclick="delModal(this);">×</button>
+          <h2 class="c-heading" id="modal-title">{{title}}</h2>
+          <h3 class="c-heading" id="modal-date">{{date}}</h3>
+        </header>
+        <div class="c-card__body o-panel" id="modal-text" style="height: 30em;">
+            {{text}}
+        </div>
+        <footer class="c-card__footer">
+          <div class="c-input-group" id="modal-buttons">
+            <button value="1" onclick="score(this);" id="judge-button" class="c-button c-button--block c-button--info">Relevant</button>
+            <button value="0" onclick="scorethis();" id="judge-button" class="c-button c-button--block c-button--brand">Not relevant</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/relevance.js') }}"></script>

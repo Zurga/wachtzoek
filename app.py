@@ -21,6 +21,7 @@ SUMMARIES_SIZE = 15
 # Prevents program from doing stuff for entire database.
 # Also sets amount of pagination items to /10.
 RESULT_SIZE = 10
+PAGINATION_SIZE = 10
 
 # Check if Elasticsearch is running
 r = requests.get(ELASTIC)
@@ -38,12 +39,31 @@ if not indices_client.exists('telegraaf'):
 app = Flask(__name__, static_path='/static/')
 
 
-@app route('/api/score', methods=['POST'])
+
+@app.route('/api/score', methods=['POST'])
 def insert_score():
     #{query: query, judge: name, docID: doc, relevant: [1,0]}
 
     scoredict = request.form
-    es.index(index='score', body=scoredict)
+    query = {
+        'query': {
+            "bool": {
+                'should': [
+                    {'match': {
+                        'query': scoredict['query']
+                    }},
+                    {'match': {
+                        'docid': scoredict['docid']
+                    }}
+                ]
+            }
+        }
+    }
+    print(query)
+    exists = es.search(index='score', body=query)
+    if not exists['hits']['hits']:
+        es.index(index='score', body=scoredict, doc_type='score')
+    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
 def get_scores():
     searchterm = request.form.get(query)
@@ -89,16 +109,6 @@ def tokenizer(s):
               and len(i) > 1 and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
 
-
-def doc_getter(res):
-    hits = res['hits']['hits']
-    items = [es.get('telegraaf', i.get('_id'))
-             for i in sorted(hits, key=lambda x: x['_score'],
-                             reverse=True)]
-    print('got these items', len(items))
-    docs = [j.get('_source') for j in items]
-    return docs
-
 def summary_fixer(s):
     """
     Makes the summaries look nicer.
@@ -140,6 +150,7 @@ def wordcloud_gen(summaries, query):
 
     return sorted(wc, key=lambda x: x[1], reverse=True)[:WORDCLOUD_SIZE]
 
+
 def paginate(docs, per_page=10):
     """
     On input on a list of doc-items,
@@ -152,19 +163,30 @@ def paginate(docs, per_page=10):
 def index():
     return render_template('index.html')
 
-@app.route('/result', methods=['POST'])
-def search():
+
+@app.route('/result', defaults={'page': 1}, methods=['POST', 'GET'])
+@app.route('/result/page/<int:page>')
+def search(page):
     print(request.form)
-    searchterm = ' '.join(tokenizer(request.form.get('query', '')))
+
+    if request.method == 'POST':
+        searchterm = ' '.join(tokenizer(request.form.get('query', '')))
+        startdate = request.form.get('from')
+        enddate= request.form.get('to', '1994')
+        title = request.form.get('title', '')
+        current_page = int(request.form.get('current_page', 1)) - 1
+
+    if request.method == 'GET':
+        searchterm = ' '.join(tokenizer(request.args.get('query', '')))
+        startdate = request.args.get('from')
+        enddate= request.args.get('to', '1994')
+        title = request.args.get('title', '')
+        current_page = int(request.args.get('current_page', 1)) - 1
 
     if not searchterm:
         # TODO give feedback that the search failed
         pass
 
-    startdate = request.form.get('from')
-    enddate= request.form.get('to', '1994')
-    title = request.form.get('title', '')
-    current_page = int(request.form.get('current_page', 1)) - 1
 
     query = {"query": {
                 "filtered": {
@@ -191,7 +213,7 @@ def search():
                         }
                     }
                 },
-            "from": 0,
+            "from": RESULT_SIZE * page,
             "size": RESULT_SIZE,
             "sort": {
                 "_score": {
@@ -200,56 +222,79 @@ def search():
         }
     }
 
-    print(query)
-
     res = es.search(index="telegraaf", body=query)
     docs = res['hits']['hits']
-
-
-    # Retrieve documents
-    all_docs = doc_getter(res)
-    amount = len(all_docs)
-    docs = all_docs[:RESULT_SIZE]
-
-    # Pagination
-    pagination = paginate(docs)
-    pagination_length = len(pagination)
+    num_docs = res['hits']['total']
+    # for the pagination
+    num_pages = round(num_docs / RESULT_SIZE)
+    pagination_end = PAGINATION_SIZE + page
+    print('pag_end', pagination_end)
+    overshoot = num_pages - pagination_end
+    print('overshoot', overshoot)
+    if overshoot < 0:
+        pagination_end = num_pages
 
     # Only current page!
-    results = pagination[current_page]
-    titles = [i.get('title') for i in results]
+    results = docs
+    ids = [i.get('_id') for i in results]
+    titles = [i.get('_source', {}).get('title', '') for i in results]
     titles = [t if len(t) else '<No title available.>' for t in titles]
-    texts = [i.get('text') for i in results]
+    texts = [i.get('_source', {}).get('text', '') for i in results]
     summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
-    items = list(zip(titles, summaries))
+    items = list(zip(ids, titles, summaries))
 
     timeline_years = ["2010", "2011", "2012", "2013"]
     timeline_data = [103, 99, 66, 200]
 
     # For RESULT_SIZE.
-    wtexts = [i.get('text') for i in docs]
+    wtexts = [i.get('_source', {}).get('text', '') for i in docs]
     wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-    wordcloud = wordcloud_gen(wsummaries, searchterm)
+    # wordcloud = wordcloud_gen(wsummaries, searchterm)
+    wordcloud = None
 
 
     data = {
         'timeline_years': timeline_years,
         'timeline_data': ', '.join(map(str,timeline_data)),
         'items': items,
-        'amount': amount,
+        'amount': num_docs,
         'wordcloud': wordcloud,
         'query_string': searchterm,
         'from_strng': startdate,
         'to_string': enddate,
         'title_string': title,
-        'pagination_length': list(range(1, pagination_length+1)),
-        'pagination_current': current_page + 1,
+        'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
+        'pagination_current': page
     }
 
     return render_template('result.html',
                            data=data)
 
 
+@app.route('/modal', methods=["GET"])
+def modal():
+    # haal doc o.b.v id
+    # prop tekst en metadata in template (jinja)
+    # geef template terug met render_template
+    doc_id = request.args.get('id')
+    query = {
+        'query': {
+            'match': {
+                '_id': doc_id
+            }
+        }
+    }
+
+    doc = es.search(index="telegraaf", body=query).get('hits', {}).get('hits', [''])[0].get('_source')
+
+    data = {
+        'doc_id': doc_id,
+        'title': doc.get('title', '<No title available.>'),
+        'date': doc.get('date', '<No date available.>'),
+        'text': doc.get('text', '<No text available.>')
+    }
+
+    return render_template('modal.html', data=data)
 
 @app.route('/api/search', methods=['POST'])
 def old_search():
