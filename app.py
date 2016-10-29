@@ -52,16 +52,6 @@ def tokenizer(s):
               and len(i) > 1 and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
 
-
-def doc_getter(res):
-    hits = res['hits']['hits']
-    items = [es.get('telegraaf', i.get('_id'))
-             for i in sorted(hits, key=lambda x: x['_score'],
-                             reverse=True)]
-    print('got these items', len(items))
-    docs = [j.get('_source') for j in items]
-    return docs
-
 def summary_fixer(s):
     """
     Makes the summaries look nicer.
@@ -170,27 +160,27 @@ def search():
 
 
     # Retrieve documents
-    all_docs = doc_getter(res)
+    all_docs = range(999)
     amount = len(all_docs)
-    docs = all_docs[:RESULT_SIZE]
 
     # Pagination
     pagination = paginate(docs)
     pagination_length = len(pagination)
 
     # Only current page!
-    results = pagination[current_page]
-    titles = [i.get('title') for i in results]
+    results = docs
+    ids = [i.get('_id') for i in results]
+    titles = [i.get('_source', {}).get('title', '') for i in results]
     titles = [t if len(t) else '<No title available.>' for t in titles]
-    texts = [i.get('text') for i in results]
+    texts = [i.get('_source', {}).get('text', '') for i in results]
     summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
-    items = list(zip(titles, summaries))
+    items = list(zip(ids, titles, summaries))
 
     timeline_years = ["2010", "2011", "2012", "2013"]
     timeline_data = [103, 99, 66, 200]
 
     # For RESULT_SIZE.
-    wtexts = [i.get('text') for i in docs]
+    wtexts = [i.get('_source', {}).get('text', '') for i in docs]
     wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
     wordcloud = wordcloud_gen(wsummaries, searchterm)
 
@@ -213,6 +203,30 @@ def search():
                            data=data)
 
 
+@app.route('/modal', methods=["GET"])
+def modal():
+    # haal doc o.b.v id
+    # prop tekst en metadata in template (jinja)
+    # geef template terug met render_template
+    doc_id = request.args.get('id')
+    query = {
+        'query': {
+            'match': {
+                '_id': doc_id
+            }
+        }
+    }
+
+    doc = es.search(index="telegraaf", body=query).get('hits', {}).get('hits', [''])[0].get('_source')
+
+    data = {
+        'doc_id': doc_id,
+        'title': doc.get('title', '<No title available.>'),
+        'date': doc.get('date', '<No date available.>'),
+        'text': doc.get('text', '<No text available.>')
+    }
+
+    return render_template('modal.html', data=data)
 
 @app.route('/api/search', methods=['POST'])
 def old_search():
