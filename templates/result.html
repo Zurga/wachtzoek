@@ -10,6 +10,8 @@
 {% set pagination = data['pagination_length'] %}
 {% set current_page = data['pagination_current'] %}
 
+<div class="modal-container"></div>
+
 {% include 'header.html' %}
 <body class="c-text">
     <main class="u-center-block search-result">
@@ -71,8 +73,10 @@
 
               {% for item in items %}
                 <div class="resultitem">
-                    <h3>{{item[0]}}</h3>
-                    <h5>{{item[1]}}</h5>
+                    <h3><a id="{{item[0]}}"
+                           onclick="getModal(this);"
+                           >{{item[1]}}</a></h3>
+                    <h5>{{item[2]}}</h5>
                 </div>
               {% endfor %}
           </div>
@@ -95,7 +99,6 @@
             </div>
         </div>
     </main>
-
 </body>
 
 {% include 'scripts.html' %}

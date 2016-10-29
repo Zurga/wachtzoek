@@ -4,6 +4,10 @@ body {
     /*overflow-y: hidden;*/
 }
 
+a {
+    cursor: pointer !important;
+}
+
 .c-button {
     padding: 0;
     padding-left: 0.32em;
@@ -111,4 +115,45 @@ h5 {
 /*Pagination*/
 .c-pagination {
     border-top: 3px solid grey;
+}
+
+/* Modal */
+.modal-container {
+    visibility: hidden;
+}
+#modal-title {
+    margin-top: 3em;
+    margin-left: 2em;
+}
+
+#modal-date {
+    margin-left: 2.5em;
+    margin-right: 4.5em;
+    margin-top: 0.5em;
+    margin-bottom: 0.75em;
+    padding-bottom: 0.65em;
+    border-bottom: 1px solid grey;
+}
+
+#modal-text {
+    margin-left: 2.5em;
+    margin-right: 4.5em;
+    font-size: 14pt;
+    text-align: justify;
+    line-height: 1.65em;
+    margin-top: 2.75em;
+
+}
+
+#modal-buttons {
+    padding: 3em;
+    margin-bottom: 2em;
+}
+
+#judge-button {
+    padding: 0.75em;
+}
+
+.c-button--close {
+    font-size: 32pt;
 }
