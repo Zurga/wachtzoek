@@ -39,10 +39,20 @@ if not indices_client.exists('telegraaf'):
 app = Flask(__name__, static_path='/static/')
 
 
+@app.route('/api/score', methods=['POST'])
 def insert_score():
     # dict = {query: [(id, 1)]}
     scoredict = request.form
-    es.index(index='score', body=scoredict)
+    query = {
+        'query': {
+            'match': scoredict,
+        }
+    }
+    print(query)
+    exists = es.search(index='score', body=query)
+    if not exists['hits']['hits']:
+        es.index(index='score', body=scoredict, doc_type='score')
+    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
 def tokenizer(s):
     """
@@ -178,14 +188,6 @@ def search(page):
     if overshoot < 0:
         pagination_end = num_pages
 
-    # Retrieve documents
-    all_docs = range(999)
-    amount = len(all_docs)
-
-    # Pagination
-    pagination = paginate(docs)
-    pagination_length = len(pagination)
-
     # Only current page!
     results = docs
     ids = [i.get('_id') for i in results]
@@ -209,7 +211,7 @@ def search(page):
         'timeline_years': timeline_years,
         'timeline_data': ', '.join(map(str,timeline_data)),
         'items': items,
-        'amount': amount,
+        'amount': num_docs,
         'wordcloud': wordcloud,
         'query_string': searchterm,
         'from_strng': startdate,
