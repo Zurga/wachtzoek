@@ -1,0 +1,38 @@
+<!-- Load d3.js and c3.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.0/d3.min.js" charset="utf-8"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.min.js"></script>
+
+<!--- https://github.com/timdream/wordcloud2.js/blob/gh-pages/LICENSE -->
+<script src="{{ url_for('static', filename='js/wordcloud.js') }}"></script>
+
+<!-- Pagination handler -->
+<script src="{{ url_for('static', filename='js/paginate.js') }}"></script>
+
+
+<script>
+var options = {list: {{ wordcloud|safe }},
+ gridSize: 20,
+ weightFactor: 11,
+ origin: [200, 550],
+ fontFamily: 'Consolas',
+ clearCanvas: 'true',
+ backgroundColor: 'white' };
+WordCloud(document.getElementById('canvas'), options );
+</script>
+
+<script>
+var chart = c3.generate({
+    bindto: '#timeline',
+    data: {
+        columns: [
+            ['Resultaten', {{ timeline_data|safe }}],
+        ]
+    },
+    axis: {
+        x: {
+            type: 'category',
+            categories: {{ timeline_years|safe }}
+        }
+    }
+});
+</script>

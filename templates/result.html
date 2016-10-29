@@ -1,0 +1,101 @@
+{% set items = data['items'] %}
+{% set amount = data['amount'] %}
+{% set timeline_years = data['timeline_years'] %}
+{% set timeline_data = data['timeline_data'] %}
+{% set wordcloud = data['wordcloud'] %}
+{% set query = data['query_string'] %}
+{% set title = data['title_string'] %}
+{% set from = data['from_string'] %}
+{% set to = data['to_string'] %}
+{% set pagination = data['pagination_length'] %}
+{% set current_page = data['pagination_current'] %}
+
+{% include 'header.html' %}
+<body class="c-text">
+    <main class="u-center-block search-result">
+        <div class="o-grid">
+            <div class="actual-advanced-search o-grid__cell o-grid__cell--width-40">
+            <h1 class="c-heading search-title">Telegraaf Search</h1>
+            <form action="/result" method="POST">
+                <div class="o-form-element">
+                    <div class="c-input-group">
+                        <div class="o-field">
+                            <input id="query_string" name="query" class="c-field"
+                                   type="text" placeholder="Search..."
+                                   value="{{query}}">
+                        </div>
+                        <button class="c-button c-button--brand"><i class="fa fa-fw fa-search c-icon"></i></button>
+                    </div>
+                </div>
+
+            <div class="o-grid">
+                <div class="advanced-input o-grid__cell o-grid__cell--width-15 o-field o-grid__cell--no-gutter">
+                    <input id="from_string" name="from" class="c-field"
+                           type="number" min="1900" nax="2015" placeholder="From ..."
+                           value="{{from}}">
+                </div>
+                <div class="advanced-input o-grid__cell o-grid__cell--width-15 o-field o-grid__cell--no-gutter">
+                    <input id="to_string" name="to" class="c-field"
+                           type="number" min="1901" max="2016" placeholder="To ..."
+                           value="{{to}}">
+                </div>
+                <div class="advanced-input o-grid__cell o-grid__cell--width-70 o-grid__cell--no-gutter"
+                    style="padding: 0;">
+                    <input id="title_string" name="title" class="c-field" type="text" placeholder="Title"
+                           value="{{title}}">
+                </div>
+            </div>
+        </div>
+        <div class="o-grid__cell o-grid__cell--width-60 o-grid__cell--no-gutter" id="timeline"></div>
+        </div>
+
+
+        <div class="results o-grid">
+          <div class="facets o-grid__cell o-grid__cell--width-20 o-grid__cell--width-15@large">
+            <h2>Facets</h2>
+            <label class="c-field c-field--choice">
+              <input type="checkbox"> Article (500)
+            </label>
+            <label class="c-field c-field--choice">
+              <input type="checkbox"> Advertisement (over 9000)
+            </label>
+
+          </div>
+          <div class="resultlist o-grid__cell">
+              {% if amount != 1 %}
+                <h2>{{amount}} results</h2>
+              {% endif %}
+              {% if amount == 1 %}
+                  <h2>1 result</h2>
+              {% endif %}
+
+              {% for item in items %}
+                <div class="resultitem">
+                    <h3>{{item[0]}}</h3>
+                    <h5>{{item[1]}}</h5>
+                </div>
+              {% endfor %}
+          </div>
+
+          <div class="filler-oh-boy-this-is-hacky o-grid__cell o-grid__cell--width-5"> </div>
+          <div id="canvas" class="wordcloud o-grid__cell o-grid__cell--width-20"></div>
+          <div class="filler-oh-boy-this-is-hacky o-grid__cell o-grid__cell--width-5"> </div>
+        </div>
+        <div class="c-pagination">
+            <div class="c-pagination__controls">
+                {% for p in pagination %}
+                    {% if p == current_page %}
+                        <button class="c-pagination__page c-pagination__page--current">{{p}}</button>
+                    {% else %}
+                    <button class="c-pagination__page">{{p}}</button>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+
+</body>
+
+{% include 'scripts.html' %}
+{% include 'scripts-result.html' %}
+</html>
