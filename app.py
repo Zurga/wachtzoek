@@ -45,7 +45,16 @@ def insert_score():
     scoredict = request.form
     query = {
         'query': {
-            'match': scoredict,
+            "bool": {
+                'should': [
+                    {'match': {
+                        'query': scoredict['query']
+                    }},
+                    {'match': {
+                        'docid': scoredict['docid']
+                    }}
+                ]
+            }
         }
     }
     print(query)
@@ -217,7 +226,7 @@ def search(page):
         'from_strng': startdate,
         'to_string': enddate,
         'title_string': title,
-        'pagination_length': list(range(page, pagination_end)),
+        'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
         'pagination_current': page
     }
 
