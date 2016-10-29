@@ -87,7 +87,9 @@
                     {% if p == current_page %}
                         <button class="c-pagination__page c-pagination__page--current">{{p}}</button>
                     {% else %}
-                    <button class="c-pagination__page">{{p}}</button>
+                    <!--button class="c-pagination__page"-->
+                    <a href="/result/page/{{p}}?query={{query}}&from={{from}}&to={{to}}&title={{title}}">{{p}}</a>
+                    <!--/button-->
                     {% endif %}
                 {% endfor %}
             </div>
