@@ -76,28 +76,41 @@ def get_scores():
         }
     }
     # get results based on the query
-    result = es.search(index=query)
+    result = es.search(index='score', body=query)
 
-    # get judge id's for serach query
-    j1id = result['hits']['hits'][0][judge]
-    j2id = result['hits']['hits'][1][judge]
+    # get judg[e id's for serach query
+    judges = {doc['judge'] for doc in result['hits']['hits']}
+    judge1 = judges[0]
+    judge2 = judges[1]
 
-    judge_query =
-    {
-        'query':{
-            'bool': {
-                'must': {
-                    "match": {
-                        "query": searchterm
-                    }
-                },
-                "filter": {}
-                    {"term": {"judge": [j1id,j2id]}}
-                }
-            }
-        }
-    }
+    # get a dict with judge keys with their relevant labeled docs
+    # {j1:[d1,d4,d5],j2:[d2,d4]}
+    relevantdoc = {judge1:[], judge2:[]}
+    for hit in result['hits']['hits']:
+        if hit['relevant'] == 1:
+            relevantdoc[hit['judge']].append(hit['docID'])
 
+    docIDs = list(set(evaluated['docID'] for evaluated in result['hits']['hits']))
+
+    N11, N10, N01, N00 = 0
+    for docID in docIDs:
+        if docID in relevantdoc[judge1] and docID in relevantdoc[judge2]:
+            N11 += 1
+        if docID in relevantdoc[judge1] and docID not in relevantdoc[judge2]:
+            N10 += 1
+        if docID not in relevantdoc[judge1] and docID in relevantdoc[judge2]:
+            N01 += 1
+        if docID not in relevantdoc[judge1] and docID not in relevantdoc[judge2]:
+            N00 += 1
+    N = N11 + N10 + N01 + N00
+
+    # Calculate the Cohen's kappa
+    PA = (N11 + N00)/N
+    Pnonrel = (N01 + N10 + 2*N00)/(2*N)
+    Prel = (N10 + N01 + 2*N11)/(2*N)
+    PE = Pnonrel**2 + Prel**2
+    CohenKappa = (PA - PE)/(1 - PE)
+    return render_template('Kappa.html', data=CohenKappa)
 
 
 def tokenizer(s):
@@ -105,9 +118,11 @@ def tokenizer(s):
     Tokenizes a string.
     """
     tokens = [i.lower() for i in word_tokenize(s)
-              if i.lower() not in stopwords.words('dutch')
-              and len(i) > 1 and re.match(r'^[a-zA-Z]+$', i)]
+                if i.lower() not in stopwords.words('dutch')
+                and len(i) > 1
+                and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
+
 
 def summary_fixer(s):
     """
@@ -118,6 +133,7 @@ def summary_fixer(s):
     if not s.endswith('.'):
         s += '.'
     return s.capitalize() if len(s.split()) > 2 else '<No summary available.>'
+
 
 def summarize(text, word_count):
     text = re.sub(r"[^.,!;:A-z]+|Pagina", ' ', text.rstrip())
@@ -131,6 +147,7 @@ def summarize(text, word_count):
             s = ' '.join([i for i in text.split()][:word_count])
 
     return summary_fixer(s)
+
 
 def wordcloud_gen(summaries, query):
     def n(i, maxi, mini):
@@ -187,30 +204,12 @@ def search(page):
         # TODO give feedback that the search failed
         pass
 
-
-    query = {"query": {
-                "filtered": {
-                    "query": {
-                        # match the following input in the fiels
-                        "multi_match": {
-                            "query": searchterm,
-                            "fields": ["text", "title"]
-                            }
-                    },
-                    "filter" :{
-                        # filter on date range gte >=, lte <=
-                        "range": {
-                            #!!! not sure if name is correct
-                            "date": {
-                                "gte": '{}-01-01'.format(startdate if
-                                                         startdate else 1900),
-                                "lte": '{}-12-31'.format(enddate
-                                                         if enddate else 1994)
-                                }
-                            },
-                        #!!! not sure, filter on the title of term
-                        #'term' : {'title': title}
-                        }
+    res = es.search(index = "telegraaf", body = {
+        "query": {
+            "filtered": {
+                "query": {
+                    "query_string": {
+                        "query": "{}".format(query)
                     }
                 },
             "from": RESULT_SIZE * page,
@@ -237,8 +236,8 @@ def search(page):
     # Only current page!
     results = docs
     ids = [i.get('_id') for i in results]
-    titles = [i.get('_source', {}).get('title', '') for i in results]
-    titles = [t if len(t) else '<No title available.>' for t in titles]
+    titles = [i.get('_source', {}).get('title', '<No title available.>')
+              for i in results]
     texts = [i.get('_source', {}).get('text', '') for i in results]
     summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
     items = list(zip(ids, titles, summaries))
@@ -249,9 +248,8 @@ def search(page):
     # For RESULT_SIZE.
     wtexts = [i.get('_source', {}).get('text', '') for i in docs]
     wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-    # wordcloud = wordcloud_gen(wsummaries, searchterm)
-    wordcloud = None
 
+    wordcloud = wordcloud_gen(wsummaries, query)
 
     data = {
         'timeline_years': timeline_years,
@@ -259,7 +257,7 @@ def search(page):
         'items': items,
         'amount': num_docs,
         'wordcloud': wordcloud,
-        'query_string': searchterm,
+        'query_string': query,
         'from_strng': startdate,
         'to_string': enddate,
         'title_string': title,
@@ -297,14 +295,14 @@ def modal():
     return render_template('modal.html', data=data)
 
 @app.route('/api/search', methods=['POST'])
-def old_search():
+def search():
     if not request.form:
         data = request.values
     else:
         data = request.values
     searchterm = data.get('query', 'Duits')
-    startdate = data.get('startdate', '1990-01-10')
-    enddate = data.get('enddate', '1990-12-01')
+    startdate = data.get('startdate', '1918-01-10')
+    enddate = data.get('enddate', '1990-01-01')
     title = data.get('title', '')
 
     query = {"query": {
