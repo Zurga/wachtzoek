@@ -48,20 +48,18 @@ def tokenizer(s):
     Tokenizes a string.
     """
     tokens = [i.lower() for i in word_tokenize(s)
-                if i.lower() not in stopwords.words('dutch')
-                and len(i) > 1
-                and re.match(r'^[a-zA-Z]+$', i)]
+              if i.lower() not in stopwords.words('dutch')
+              and len(i) > 1 and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
 
 
 def doc_getter(res):
     hits = res['hits']['hits']
     items = [es.get('telegraaf', i.get('_id'))
-                    for i in sorted(hits,
-                                    key=lambda x: x['_score'],
-                                    reverse=True)]
-
-    docs = [j.get('_source').get('doc') for j in items]
+             for i in sorted(hits, key=lambda x: x['_score'],
+                             reverse=True)]
+    print('got these items', len(items))
+    docs = [j.get('_source') for j in items]
     return docs
 
 def summary_fixer(s):
@@ -149,7 +147,7 @@ def suggest():
                 "order": "desc"
             }
         },
-        "explain": True
+        "explain": False
     })
 
     # Retrieve documents
@@ -158,11 +156,11 @@ def suggest():
     docs = all_docs[:RESULT_SIZE]
 
     # Pagination
-    p = paginate(docs)
-    pagination_length = len(p)
+    pagination = paginate(docs)
+    pagination_length = len(pagination)
 
     # Only current page!
-    results = p[current_page]
+    results = pagination[current_page]
     titles = [i.get('title') for i in results]
     titles = [t if len(t) else '<No title available.>' for t in titles]
     texts = [i.get('text') for i in results]
@@ -204,8 +202,8 @@ def search():
     else:
         data = request.values
     searchterm = data.get('query', 'Duits')
-    startdate = data.get('startdate', '1918-01-10')
-    enddate = data.get('enddate', '1990-01-01')
+    startdate = data.get('startdate', '1990-01-10')
+    enddate = data.get('enddate', '1990-12-01')
     title = data.get('title', '')
 
     query = {"query": {
