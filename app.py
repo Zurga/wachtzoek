@@ -69,6 +69,7 @@ def insert_score():
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
     return json.dumps({'success': False}), 404, {'ContentType':'application/json'}
 
+
 def tokenizer(s):
     """
     Tokenizes a string.
@@ -102,7 +103,8 @@ def describe(query, text):
                 if abs(indices[-1] - i) > 10:
                     indices.append(i)
 
-    snippits = [' '.join(['...'] + strongified[i-15:i+15] + ['...']) for i in indices]
+    snippits = [' '.join((['...'] if i-12>0 else ['']) + strongified[(i-12 if i-12 >0 else 0):i+12] + ['...']) for i in indices]
+
     description = ' '.join(snippits[:2])
     if len(description) > 15:
         return description
@@ -250,6 +252,7 @@ def search(page):
 
     if doc_type:
         filters = {'bool': {'should': []}}
+        # Get the aggregation data for the facets that have not been enabled.
         facet_res = es.search(index='telegraaf', body=query).get('aggregations')
         facets = {t.get('key'): {'count': t.get('doc_count'),
                                                    'checked': ''} for t in

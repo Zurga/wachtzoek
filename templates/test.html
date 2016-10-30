@@ -1,0 +1,16 @@
+<html>
+    <body>
+        <form>
+            {% for widget in form %}
+            <label>{{widget.label}}</label> {{widget}} <span> {{widget.description}} </span>
+            {% endfor %}
+        </form>
+        <form>
+            {% for widget in faces %}
+            <label>{{widget.label}}</label> {{widget}} <span> {{widget.description}} </span>
+            {% endfor %}
+        </form>
+    </body>
+</html>
+
+    pass

@@ -27,7 +27,7 @@
                                    type="text" placeholder="Search..."
                                    value="{{query}}">
                         </div>
-                        <button class="c-button c-button--brand"><i class="fa fa-fw fa-search c-icon"></i></button>
+                        <button class="c-button c-button--ghost"><i class="fa fa-fw fa-search c-icon"></i></button>
                     </div>
                 </div>
             <div class="o-grid">
@@ -43,12 +43,18 @@
                 </div>
                 <div class="advanced-input o-grid__cell o-grid__cell--width-70 o-grid__cell--no-gutter"
                     style="padding: 0;">
-                    <input id="title_string" name="title" class="c-field" type="text" placeholder="Title"
-                           value="{{title}}">
+                    <!-- <input id="title_string" name="title" class="c-field" type="text" placeholder="Title"
+                           value="{{title}}"> -->
+
+                   <div class="c-input-group">
+                       <div class="o-field">
+                           <input id="title_string" name="title" class="c-field" type="text" placeholder="Title"
+                                  value="{{title}}">
+                       </div>
+                        <button type="button" onclick="$('#from_string').val(''); $('#to_string').val(''); $('#title_string').val('');" class="c-button c-button--ghost">reset</button>
+                   </div>
                 </div>
             </div>
-            <a href="/result?query={{query}}">Reset zoekparameters</a>
-
         </div>
         <div class="o-grid__cell o-grid__cell--width-60 o-grid__cell--no-gutter" id="timeline"></div>
         </div>
@@ -59,7 +65,7 @@
             <h2>Facets</h2>
             {% for facet, data in facets.items() %}
                 <label for="{{facet}}" class="c-field c-field--choice">
-                    <input name="{{facet}}" class="facet" type="checkbox"
+                    <input name="{{facet}}" id="{{facet}}" class="facet" type="checkbox"
                     onclick='facet_search(this);' {{data['checked']}}>
                     {{facet.replace('_', ' ')}} ({{data['count']}})
                 </label>
