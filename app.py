@@ -64,6 +64,7 @@ def insert_score():
     if not exists['hits']['hits']:
         es.index(index='score', body=scoredict, doc_type='score')
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+    print(exists)
     return json.dumps({'success': False}), 200, {'ContentType':'application/json'}
 
 def tokenizer(s):
@@ -247,6 +248,7 @@ def search(page):
 
     if doc_type:
         filters = {'bool': {'should': []}}
+        # Get the aggregation data for the facets that have not been enabled.
         facet_res = es.search(index='telegraaf', body=query).get('aggregations')
         facets = {t.get('key'): {'count': t.get('doc_count'),
                                                    'checked': ''} for t in
@@ -297,7 +299,6 @@ def search(page):
                                                     'checked': ''} for t in
                         aggregations.get('types', {}).get('buckets', [])}
 
-        # facets = {}
         data = {
             'timeline_years': timeline_years,
             'timeline_data': ', '.join(map(str,timeline_data)),
