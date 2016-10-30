@@ -21,7 +21,7 @@ function score(pressed) {
                    };
     var request = $.post('/api/score', data, function (data) {
         $(pressed).css('background-color', '#00ee00');
-        $('#judge-button').attr('disabled', 'true');
+        $('.judge-button').attr('disabled', 'true');
         }).fail(function () {
             $(pressed).css('background-color', '#ee0000');
             $(pressed).attr('disabled', 'true');
