@@ -14,11 +14,12 @@ function delModal(identifier) {
 
 // creates a query to the database with the relevancy
 function score(pressed) {
-    var data = {'relevant': this.value,
+    var data = {'relevant': pressed.value,
                 'query': $('#query_string')[0].value,
                 'judge': $('#judge_input')[0].value,
                 'docid': $('#modal-overall #doc_id')[0].value,
-                };
+              };
+              console.log(data);
     var request = $.post('/api/score', data, function (data) {
         $(pressed).css('background-color', '#00ee00');
         $('.judge-button').attr('disabled', 'true');
