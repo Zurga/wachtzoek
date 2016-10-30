@@ -34,6 +34,13 @@ var chart = c3.generate({
     axis: {
         x: {
             type: 'category',
+            tick: {
+                // count: 35,
+                multiline: false,
+                culling: {
+                    max: 25,
+                }
+            },
             categories: {{ timeline_years|safe }}
         }
     }
