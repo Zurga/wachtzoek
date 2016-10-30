@@ -76,6 +76,40 @@ def tokenizer(s):
               and len(i) > 2 and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
 
+def describe(query, text):
+    """
+    Returns a fraction of a text based on
+    a query. Makes query terms bold.
+    """
+    # No proper tokenization here to keep structure
+    tokens = text.split()
+    query = '|'.join(query.lower().split())
+    s1 = "<strong>"
+    s2 = "</strong>"
+
+    strongified = [s1+t+s2 if re.match(query, t.lower()) else t for t in tokens]
+    enum = enumerate(strongified)
+
+    indices = []
+    print(strongified)
+    for i, token in enum:
+        if token.startswith('<'):
+            if len(indices) == 0:
+                indices.append(i)
+            else:
+                if abs(indices[-1] - i) > 10:
+                    indices.append(i)
+
+    snippits = [' '.join(['...'] + strongified[i-15:i+15] + ['...']) for i in indices]
+    description = ' '.join(snippits)
+    if len(description) > 15:
+        return description
+    else:
+        return "No description available."
+
+
+
+
 def wordcloud_gen(texts, query):
 
     def n(i, maxi, mini):
@@ -233,8 +267,9 @@ def search(page):
 
         ###########################################################
         # TODO FIX DESCRIPTIONS HERE
-        summaries = ['N/A' for t in texts]
-        # items = list(zip(ids, titles, summaries))
+        for d in docs:
+            d['description'] = describe(searchterm, d['_source'].get('text', ''))
+
         ###########################################################
 
         # For RESULT_SIZE.
@@ -255,8 +290,6 @@ def search(page):
         # Facets data gathering
         types = ((t.get('key').replace('_', ' '), t.get('doc_count')) for t in
                       aggregations.get('types', {}).get('buckets', []))
-
-        print(types)
 
         data = {
             'timeline_years': timeline_years,
