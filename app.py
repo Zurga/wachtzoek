@@ -33,7 +33,7 @@ if not r:
 
 es = Elasticsearch()
 indices_client = client.IndicesClient(es)
-if not indices_client.exists('telegraaf'):
+if not indices_client.exists('score'):
     # creating index for scores
     indices_client.create('score')
 
@@ -55,6 +55,9 @@ def insert_score():
                     }},
                     {'match': {
                         'docid': scoredict['docid']
+                    }},
+                    {'match': {
+                        'judge': scoredict['judge']
                     }}
                 ]
             }
@@ -64,8 +67,8 @@ def insert_score():
     if not exists['hits']['hits']:
         es.index(index='score', body=scoredict, doc_type='score')
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
-    print(exists)
-    return json.dumps({'success': False}), 200, {'ContentType':'application/json'}
+    return json.dumps({'success': False}), 404, {'ContentType':'application/json'}
+
 
 def tokenizer(s):
     """
@@ -100,7 +103,8 @@ def describe(query, text):
                 if abs(indices[-1] - i) > 10:
                     indices.append(i)
 
-    snippits = [' '.join(['...'] + strongified[i-15:i+15] + ['...']) for i in indices]
+    snippits = [' '.join((['...'] if i-12>0 else ['']) + strongified[(i-12 if i-12 >0 else 0):i+12] + ['...']) for i in indices]
+
     description = ' '.join(snippits[:2])
     if len(description) > 15:
         return description
@@ -171,7 +175,7 @@ def index():
 @app.route('/result', defaults={'page': 1}, methods=['POST', 'GET'])
 @app.route('/result/page/<int:page>')
 def search(page):
-    print(request.form)
+    request.form
     if request.method == 'POST':
         data = request.form
     elif request.method == 'GET':
@@ -299,6 +303,7 @@ def search(page):
                                                     'checked': ''} for t in
                         aggregations.get('types', {}).get('buckets', [])}
 
+        # facets = {}
         data = {
             'timeline_years': timeline_years,
             'timeline_data': ', '.join(map(str,timeline_data)),
@@ -358,66 +363,71 @@ def get_scores():
     Evaluation = {'terms': {},'avg':0}
 
     for searchterm in searchterms:
-        query = {'query': {'match': {'query': searchterm}}}
+        query = {'query': {'match': {'query': searchterm}},"size":50}
         # get results based on the query
         result = es.search(index='score', body=query)
+        print(result['hits']['hits'])
 
+        Evaluation['terms'][searchterm] = {}
         # return empty dict if no results
         if result['hits']['hits'] == []:
-            Evaluation['terms'][searchterm] = {}
+            pass
 
-        else:
-            # get judg[e id's for serach query
-            judges = list({doc['judge'] for doc in result['hits']['hits']})
-            judge1 = judges[0]
-            judge2 = judges[1]
+        # get judg[e id's for serach query
+        judges = list({doc['_source']['judge'] for doc in result['hits']['hits']})
+        judge1 = judges[0]
+        judge2 = judges[1]
 
-            # get a dict with judge keys with
-            # their relevant  and nonrelevant labeled docs
-            # {j1:{relevant:[d1,d4,d5],nonrelevant:[d2,d3]},j2:..}
-            relevantdoc = {
-                judge1: {'relevant': [],
-                        'nonrelevant': []},
-                judge2: {'relevant': [],
-                        'nonrelevant': []}
-            }
+        # get a dict with judge keys with
+        # their relevant  and nonrelevant labeled docs
+        # {j1:{relevant:[d1,d4,d5],nonrelevant:[d2,d3]},j2:..}
+        relevantdoc = {
+            judge1: {'relevant': [],
+                    'nonrelevant': []},
+            judge2: {'relevant': [],
+                    'nonrelevant': []}
+        }
 
-            for hit in result['hits']['hits']:
-                if hit['relevant'] == 1:
-                    relevantdoc[hit['judge']['relevant']].append(hit['docID'])
-                if hit['relevant'] == 0:
-                    relevantdoc[hit['judge']['nonrelevant'].append(hit['docID'])]
+        print(len(result['hits']['hits']))
+        for hit in result['hits']['hits']:
+            hit = hit['_source']
+            if int(hit['relevant']) == 1:
+                relevantdoc[hit['judge']]['relevant'].append(hit['docid'])
+            if int(hit['relevant']) == 0:
+                relevantdoc[hit['judge']]['nonrelevant'].append(hit['docid'])
 
-            docIDs = list(set(evaluated['docID'] for evaluated in result['hits']['hits']))
+        docIDs = set(hit['_source']['docid']
+                          for hit in result['hits']['hits'])
 
-            N11, N10, N01, N00 = 0
-            for docID in docIDs:
-                if docID in relevantdoc[judge1]['relevant'] and \
-                        docID in relevantdoc[judge2]['relevant']:
-                    N11 += 1
-                if docID in relevantdoc[judge1]['relevant'] and \
-                        docID in relevantdoc[judge2]['nonrelevant']:
-                    N10 += 1
-                if docID in relevantdoc[judge1]['nonrelevant'] and \
-                        docID in relevantdoc[judge2]['relevant']:
-                    N01 += 1
-                if docID in relevantdoc[judge1]['nonrelevant'] and \
-                        docID in relevantdoc[judge2]['nonrelevant']:
-                    N00 += 1
+        N11, N10, N01, N00 = 0, 0, 0, 0
 
-            N = N11 + N10 + N01 + N00
+        for docID in docIDs:
+            if docID in relevantdoc[judge1]['relevant'] and \
+                    docID in relevantdoc[judge2]['relevant']:
+                N11 += 1
+            if docID in relevantdoc[judge1]['relevant'] and \
+                    docID in relevantdoc[judge2]['nonrelevant']:
+                N10 += 1
+            if docID in relevantdoc[judge1]['nonrelevant'] and \
+                    docID in relevantdoc[judge2]['relevant']:
+                N01 += 1
+            if docID in relevantdoc[judge1]['nonrelevant'] and \
+                    docID in relevantdoc[judge2]['nonrelevant']:
+                N00 += 1
 
-            # Calculate the P@10 for both judges
-            Evaluation['terms'][searchterm]['P10judge1'] = len(relevantdoc[judge1]['relevant'])/N
-            Evaluation['terms'][searchterm]['P10judge2'] = len(relevantdoc[judge2]['nonrelevant'])/N
+        N = N11 + N10 + N01 + N00
 
-            # Calculate the Cohen's kappa
-            PA = (N11 + N00)/N
-            Pnonrel = (N01 + N10 + 2*N00)/(2*N)
-            Prel = (N10 + N01 + 2*N11)/(2*N)
-            PE = Pnonrel**2 + Prel**2
-            Evaluation['terms'][searchterm]['CohensKappa'] = (PA - PE)/(1 - PE)
-            Evaluation['avg'] += Evaluation['terms'][searchterm]['P10judge1'] + Evaluation['terms'][searchterm]['P10judge2']
+        # Calculate the P@10 for both judges
+        Evaluation['terms'][searchterm]['P10judge1'] = len(relevantdoc[judge1]['relevant'])/N
+        Evaluation['terms'][searchterm]['P10judge2'] = len(relevantdoc[judge2]['nonrelevant'])/N
+
+        # Calculate the Cohen's kappa
+        PA = (N11 + N00)/N
+        Pnonrel = (N01 + N10 + 2*N00)/(2*N)
+        Prel = (N10 + N01 + 2*N11)/(2*N)
+        PE = Pnonrel**2 + Prel**2
+        Evaluation['terms'][searchterm]['CohensKappa'] = (PA - PE)/(1 - PE)
+        Evaluation['avg'] += Evaluation['terms'][searchterm]['P10judge1'] + Evaluation['terms'][searchterm]['P10judge2']
 
     Evaluation['avg'] = Evaluation['avg'] / len(searchterms)
     return render_template('evaluation.html', data=Evaluation)
