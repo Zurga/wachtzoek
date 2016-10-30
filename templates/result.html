@@ -56,12 +56,26 @@
         <div class="results o-grid">
           <div class="facets o-grid__cell o-grid__cell--width-20 o-grid__cell--width-15@large">
             <h2>Facets</h2>
-            {% for type, count in facets %}
-                <label for="{{type}}" class="c-field c-field--choice">
-                    <input name="{{type}}" type="checkbox" onclick='facet_search(this);'>
-                        {{type}} ({{count}})
+                <label for="advertentie" class="c-field c-field--choice">
+                    <input name="advertentie" class="facet" type="checkbox" onclick='facet_search(this);'
+                    {{facets['advertentie']['checked']}}>
+                       advertentie ({{facets['advertentie']['count']}})
                 </label>
-            {% endfor %}
+                <label for="artikel" class="c-field c-field--choice">
+                    <input name="artikel" class="facet" type="checkbox" onclick='facet_search(this);'
+                    {{facets['artikel']['checked']}}>
+                       artikel ({{facets['artikel']['count']}})
+                </label>
+                <label for="familiebericht" class="c-field c-field--choice">
+                    <input name="familiebericht" class="facet"type="checkbox" onclick='facet_search(this);'
+                    {{facets['familiebericht']['checked']}}>
+                    familiebericht ({{facets['familiebericht']['count']}})
+                </label>
+                <label for="illustratie_met_onderschift" class="c-field c-field--choice">
+                    <input name="illustratie_met_onderschrift" class="facet" type="checkbox"
+                    onclick='facet_search(this);' {{facets['illustratie_met_onderschrift']['checked']}}>
+                    illustratie met onderschift ({{facets['illustratie_met_onderschrift']['count']}})
+                </label>
 
           </div>
           <div class="resultlist o-grid__cell">
