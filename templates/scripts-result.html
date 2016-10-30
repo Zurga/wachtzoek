@@ -22,6 +22,25 @@ var options = {list: {{ wordcloud|safe }},
  backgroundColor: 'white' };
 WordCloud(document.getElementById('canvas'), options );
 
+
+function facetRedir(d, index) {
+    var query = $('#query_string')[0].value;
+    var from = $('#from_string')[0].value;
+    var year = parseInt(from) + index;
+    if(!year){
+        year = 1918 + index;
+    };
+    var title = $('#title_string')[0].value;
+    var facets = $('.facet');
+    var url = "/result?query="+query+"&from="+year+"&to="+year+"&title="+title;
+    for (var i=0; i < facets.length; i++){
+        if (facets[i].checked) {
+            url += "&type="+facets[i].name;
+        };
+    };
+    window.location.href = url;
+};
+
 var timedata = [{{timeline_data|safe}}];
 var chart = c3.generate({
     bindto: '#timeline',
@@ -29,26 +48,6 @@ var chart = c3.generate({
         columns: [
             ['Resultaten', {{ timeline_data|safe }}],
         ],
-        onclick: function (d, element) {
-            if(element.__data__.value){
-                var query = $('#query_string')[0].value;
-                var from = $('#from_string')[0].value;
-                var year = parseInt(from) + element.__data__.index;
-                if(!year){
-                    year = 1918+ element.__data__.index;
-                }
-                var title = $('#title_string')[0].value;
-                var facets = $('.facet');
-                var url = "/result?query="+query+"&from="+year+"&to="+year+"&title="+title;
-                for (var i=0; i < facets.length; i++){
-                    if (facets[i].checked) {
-                        url += "&type="+facets[i].name;
-                    }
-                }
-                window.location.href = url;
-            }
-        }
-
     },
     axis: {
         x: {
@@ -64,6 +63,11 @@ var chart = c3.generate({
         }
     }
 });
+
+d3.selectAll('.c3-event-rect')
+  .on('click', function(value,index){
+      facetRedir(value, index);
+  });
 
 function facet_search() {
     var doc_type = '';
