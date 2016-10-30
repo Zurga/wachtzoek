@@ -340,48 +340,68 @@ def modal():
 
     return render_template('modal.html', data=data)
 
-@app.route('/scores', methods=['POST'])
+@app.route('/scores', methods=['GET'])
 def get_scores():
-    searchterm = request.form.get('query')
+    searchterms = request.args.get('queries')
+    searchterms = searchterms.split(",")
+    Evaluation = {'terms':{},'avg':0}
 
-    query = { 'query':{ 'match': { 'query': searchterm } } }
-    # get results based on the query
-    result = es.search(index='score', body=query)
+    for searchterm in searchterms:
 
-    # get judg[e id's for serach query
-    judges = {doc['judge'] for doc in result['hits']['hits']}
-    judge1 = judges[0]
-    judge2 = judges[1]
+        query = { 'query':{ 'match': { 'query': searchterm } } }
+        # get results based on the query
+        result = es.search(index='score', body=query)
 
-    # get a dict with judge keys with
-    # their relevant labeled docs
-    # {j1:[d1,d4,d5],j2:[d2,d4]}
-    relevantdoc = {judge1:[], judge2:[]}
-    for hit in result['hits']['hits']:
-        if hit['relevant'] == 1:
-            relevantdoc[hit['judge']].append(hit['docID'])
+        # return empty dict if no results
+        if result['hits']['hits'] == []:
+            Evaluation['terms'][searchterm] = {}
 
-    docIDs = list(set(evaluated['docID'] for evaluated in result['hits']['hits']))
+        else:
+            # get judg[e id's for serach query
+            judges = list({doc['judge'] for doc in result['hits']['hits']})
+            judge1 = judges[0]
+            judge2 = judges[1]
 
-    N11, N10, N01, N00 = 0
-    for docID in docIDs:
-        if docID in relevantdoc[judge1] and docID in relevantdoc[judge2]:
-            N11 += 1
-        if docID in relevantdoc[judge1] and docID not in relevantdoc[judge2]:
-            N10 += 1
-        if docID not in relevantdoc[judge1] and docID in relevantdoc[judge2]:
-            N01 += 1
-        if docID not in relevantdoc[judge1] and docID not in relevantdoc[judge2]:
-            N00 += 1
-    N = N11 + N10 + N01 + N00
+            # get a dict with judge keys with
+            # their relevant  and nonrelevant labeled docs
+            # {j1:{relevant:[d1,d4,d5],nonrelevant:[d2,d3]},j2:..}
+            relevantdoc = {judge1:{relevant:[],nonrelevant:[]},
+                            judge2:{relevant:[],nonrelevant:[]}}
 
-    # Calculate the Cohen's kappa
-    PA = (N11 + N00)/N
-    Pnonrel = (N01 + N10 + 2*N00)/(2*N)
-    Prel = (N10 + N01 + 2*N11)/(2*N)
-    PE = Pnonrel**2 + Prel**2
-    CohenKappa = (PA - PE)/(1 - PE)
-    return render_template('Kappa.html', data=CohenKappa)
+            for hit in result['hits']['hits']:
+                if hit['relevant'] == 1:
+                    relevantdoc[hit['judge']['relevant']].append(hit['docID'])
+                if hit['relevant'] == 0:
+                    relevantdoc[hit['judge']['nonrelevant'].append(hit['docID'])]
+
+            docIDs = list(set(evaluated['docID'] for evaluated in result['hits']['hits']))
+
+            N11, N10, N01, N00 = 0
+            for docID in docIDs:
+                if docID in relevantdoc[judge1]['relevant'] and docID in relevantdoc[judge2]['relevant']:
+                    N11 += 1
+                if docID in relevantdoc[judge1]['relevant'] and docID in relevantdoc[judge2]['nonrelevant']:
+                    N10 += 1
+                if docID in relevantdoc[judge1]['nonrelevant'] and docID in relevantdoc[judge2]['relevant']:
+                    N01 += 1
+                if docID in relevantdoc[judge1]['nonrelevant'] and docID in relevantdoc[judge2]['nonrelevant']:
+                    N00 += 1
+            N = N11 + N10 + N01 + N00
+
+            # Calculate the P@10 for both judges
+            Evaluation['terms'][searchterm]['P10judge1'] = len(relevantdoc[judge1]['relevant'])/N
+            Evaluation['terms'][searchterm]['P10judge2'] = len(relevantdoc[judge2]['nonrelevant'])/N
+
+            # Calculate the Cohen's kappa
+            PA = (N11 + N00)/N
+            Pnonrel = (N01 + N10 + 2*N00)/(2*N)
+            Prel = (N10 + N01 + 2*N11)/(2*N)
+            PE = Pnonrel**2 + Prel**2
+            Evaluation['terms'][searchterm]['CohensKappa'] = (PA - PE)/(1 - PE)
+            Evaluation['avg'] += Evaluation['terms'][searchterm]['P10judge1'] + Evaluation['terms'][searchterm]['P10judge2']
+
+    Evaluation['avg'] = Evaluation['avg'] / len(searchterms)
+    return render_template('evaluation.html', data=Evaluation)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,31 @@
+{% set evaluation = data['Evaluation'] %}
+
+{% include 'header.html' %}
+  <body class="c-text">
+    <div class="results o-grid">
+      <div class="resultlist o-grid__cell">
+        <h2>
+          {% for term in data['terms'] %}
+            {{ term }}
+          {% endfor %}
+        </h2>
+        <h4>Average Precision @ 10: {{ data['avg'] }}</h4>
+
+        {% for term in data['terms'] %}
+          <div class="resultitem">
+            <h3>{{term}}</h3>
+            {% if data['terms'][term] == {} %}
+              <ul>De zoekterm is nog niet geevalueerd door 2 personen.</ul>
+            {% else %}
+              <ul style="list-style-type: none;">
+                <li>Cohen's Kappa: <b>{{ data['terms'][term]['CohensKappa'] }}</b></li>
+                <li>Precision @ 10 Judge 1: <b>{{ data['terms'][term]['P10judge1'] }}</b></li>
+                <li>Precision @ 10 Judge 2: <b>{{ data['terms'][term]['P10judge2'] }}</b></li>
+              </ul>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </body>
+</html
