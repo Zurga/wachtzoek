@@ -26,7 +26,7 @@ class Worker(Process):
         namespaces = {'pm':'http://www.politicalmashup.nl',
                     'dc': 'http://purl.org/dc/elements/1.1/'}
         date = elem.xpath('pm:meta/dc:date', namespaces=namespaces)[0].text
-        typ = elem.xpath('pm:meta/dc:subject', namespaces=namespaces)[0].text
+        typ = elem.xpath('pm:meta/dc:subject', namespaces=namespaces)[0].text.replace(' ', '_')
         text = ' '.join(e.text for e in elem.xpath('pm:content/text/p',
                                                    namespaces=namespaces)
                         if e.text)

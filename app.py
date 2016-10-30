@@ -91,7 +91,6 @@ def describe(query, text):
     enum = enumerate(strongified)
 
     indices = []
-    print(strongified)
     for i, token in enum:
         if token.startswith('<'):
             if len(indices) == 0:
@@ -178,13 +177,14 @@ def search(page):
         data = request.form
     elif request.method == 'GET':
         data = request.args
+        print(request.args.getlist('type'))
 
     searchterm = ' '.join(tokenizer(data.get('query', '')))
     startdate = data.get('from', '')
     enddate = data.get('to', '')
     title = data.get('title', '')
     current_page = int(data.get('current_page', 1)) - 1
-    doc_type = data.get('type', '')
+    doc_type = data.getlist('type')
 
     if not searchterm:
         # TODO give feedback that the search failed
@@ -238,12 +238,23 @@ def search(page):
     title_filter = {"term": { "title": title}}
     if title:
         query['query']['filtered']['filter'].append(title_filter)
+        print(query)
 
-    doc_type_filter = {'term': {'type': doc_type}}
     if doc_type:
-        query['query']['filtered']['filter'].append(doc_type_filter)
+        filters = {'bool': {'should': []}}
+        facet_res = es.search(index='telegraaf', body=query).get('aggregations')
+        facets = {t.get('key'): {'count': t.get('doc_count'),
+                                                   'checked': ''} for t in
+                      facet_res.get('types', {}).get('buckets', [])}
+        for t in doc_type:
+            facets[t]['checked'] = 'checked="true"'
+            print(t)
+            filters['bool']['should'].append({'term': {'type': t}})
+        query['query']['filtered']['filter'].append(filters)
+
 
     res = es.search(index="telegraaf", body=query)
+    print(query)
     docs = res['hits']['hits']
     aggregations = res.get('aggregations')
 
@@ -257,13 +268,6 @@ def search(page):
         print('overshoot', overshoot)
         if overshoot < 0:
             pagination_end = num_pages
-
-        # Only current page!
-        ids = [d.get('_id') for d in docs]
-        # titles = [d.get('_source', {}).get('title', '<No title available.>') for d in docs]
-        texts = [d.get('_source', {}).get('text', '') for d in docs]
-        # for d in docs:
-        #     d['summary'] = summarize(d['_source'].get('text', ''), word_count=SUMMARIES_SIZE)
 
         ###########################################################
         # TODO FIX DESCRIPTIONS HERE
@@ -288,8 +292,10 @@ def search(page):
         timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
 
         # Facets data gathering
-        types = ((t.get('key').replace('_', ' '), t.get('doc_count')) for t in
-                      aggregations.get('types', {}).get('buckets', []))
+        if not doc_type:
+            facets = {t.get('key'): {'count': t.get('doc_count'),
+                                                    'checked': ''} for t in
+                        aggregations.get('types', {}).get('buckets', [])}
 
         data = {
             'timeline_years': timeline_years,
@@ -304,7 +310,7 @@ def search(page):
             'pagination_length': list(range(page - 1 if page - 1 != 0 else 1,
                                             pagination_end)),
             'pagination_current': page,
-            'facets': types,
+            'facets': facets,
         }
 
         return render_template('result.html', data=data)
