@@ -163,9 +163,9 @@ def search(page):
                             "fields": ["text", "title"]
                             }
                     },
-                    "filter" :{
+                    "filter" :[
                         # filter on date range gte >=, lte <=
-                        "range": {
+                        {"range": {
                             #!!! not sure if name is correct
                             "date": {
                                 "gte": '{}-01-01'.format(startdate if
@@ -173,10 +173,12 @@ def search(page):
                                 "lte": '{}-12-31'.format(enddate
                                                          if enddate else 1994)
                                 }
-                            },
+                            }
+                        },
+
                         #!!! not sure, filter on the title of term
                         #'term' : {'title': title}
-                        }
+                        ]
                     }
                 },
             "from": RESULT_SIZE * page,
@@ -196,63 +198,65 @@ def search(page):
                 }
             }
 
+    title_filter = {"term": { "title": title} }
+    if title:
+        query['query']['filtered']['filter'].append(title_filter)
+
     res = es.search(index="telegraaf", body=query)
     docs = res['hits']['hits']
     aggregations = res.get('aggregations')
-    num_docs = res['hits']['total']
-    # for the pagination
-    num_pages = round(num_docs / RESULT_SIZE)
-    pagination_end = PAGINATION_SIZE + page
-    # print('pag_end', pagination_end)
-    overshoot = num_pages - pagination_end
-    # print('overshoot', overshoot)
-    if overshoot < 0:
-        pagination_end = num_pages
-
-    # Only current page!
-    results = docs
-    ids = [i.get('_id') for i in results]
-    titles = [i.get('_source', {}).get('title', '') for i in results]
-    titles = [t if len(t) else '<No title available.>' for t in titles]
-    texts = [i.get('_source', {}).get('text', '') for i in results]
-    summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
-    items = list(zip(ids, titles, summaries))
-
-    # timeline
-    query['size'] = 9000
-    docs_full = es.search(index="telegraaf", body=query)['hits']['hits']
-    print(len(docs_full))
-
-    startdate, enddate = toInt(startdate), toInt(enddate)
-    timeline_years = list(range(startdate if startdate else 1918, enddate if enddate else 1995))
-    timeline_data = dict([(int(a.get('key_as_string')[:4]), a.get('doc_count'))
-                            for a in aggregations.get('dates', {}).get('buckets', [])])
-
-    timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
-
-    # For RESULT_SIZE.
-    wtexts = [i.get('_source', {}).get('text', '') for i in docs]
-    wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-    wordcloud = wordcloud_gen(wsummaries, searchterm)
 
 
-    data = {
-        'timeline_years': timeline_years,
-        'timeline_data': ', '.join(map(str,timeline_data)),
-        'items': items,
-        'amount': num_docs,
-        'wordcloud': wordcloud,
-        'query_string': searchterm,
-        'from_string': startdate,
-        'to_string': enddate,
-        'title_string': title,
-        'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
-        'pagination_current': page
-    }
+    if docs:
+        num_docs = res['hits']['total']
+        # for the pagination
+        num_pages = round(num_docs / RESULT_SIZE)
+        pagination_end = PAGINATION_SIZE + page
+        print('pag_end', pagination_end)
+        overshoot = num_pages - pagination_end
+        print('overshoot', overshoot)
+        if overshoot < 0:
+            pagination_end = num_pages
 
-    print(startdate, enddate)
-    return render_template('result.html',
-                           data=data)
+        # Only current page!
+        results = docs
+        ids = [i.get('_id') for i in results]
+        titles = [i.get('_source', {}).get('title', '') for i in results]
+        titles = [t if len(t) else '<No title available.>' for t in titles]
+        texts = [i.get('_source', {}).get('text', '') for i in results]
+        summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
+        items = list(zip(ids, titles, summaries))
+
+        # For RESULT_SIZE.
+        wtexts = [i.get('_source', {}).get('text', '') for i in docs]
+        wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
+        wordcloud = wordcloud_gen(wsummaries, searchterm)
+
+
+        startdate, enddate = toInt(startdate), toInt(enddate)
+        timeline_years = list(range(startdate if startdate else 1918, enddate if enddate else 1995))
+        timeline_data = dict([(int(a.get('key_as_string')[:4]), a.get('doc_count'))
+                                for a in aggregations.get('dates', {}).get('buckets', [])])
+
+        timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
+
+        data = {
+            'timeline_years': timeline_years,
+            'timeline_data': ', '.join(map(str,timeline_data)),
+            'items': items,
+            'amount': num_docs,
+            'wordcloud': wordcloud,
+            'query_string': searchterm,
+            'from_string': startdate,
+            'to_string': enddate,
+            'title_string': title,
+            'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
+            'pagination_current': page
+        }
+
+        return render_template('result.html',
+                            data=data)
+    return render_template('no-result.html')
 
 
 @app.route('/modal', methods=["GET"])
@@ -326,4 +330,3 @@ def get_scores():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
