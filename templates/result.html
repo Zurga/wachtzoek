@@ -92,7 +92,7 @@
                         {% if item['_source']['title'] %}
                             <h3>{{item['_source']['title']}}</h3>
                         {% else %}
-                            <h3>No title defined</h3>
+                            <h3>No title defined.</h3>
                         {% endif %}
                         <h4>{{item['_source']['date']}}</h4>
                         <h5>{{item['description']|safe}}</h5>
