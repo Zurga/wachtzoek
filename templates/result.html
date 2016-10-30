@@ -48,6 +48,7 @@
                 </div>
             </div>
             <a href="/result?query={{query}}">Reset zoekparameters</a>
+
         </div>
         <div class="o-grid__cell o-grid__cell--width-60 o-grid__cell--no-gutter" id="timeline"></div>
         </div>
@@ -56,11 +57,11 @@
         <div class="results o-grid">
           <div class="facets o-grid__cell o-grid__cell--width-20 o-grid__cell--width-15@large">
             <h2>Facets</h2>
-            {% for facet in facets %}
+            {% for facet, data in facets.items() %}
                 <label for="{{facet}}" class="c-field c-field--choice">
-                    <input name="advertentie" class="facet" type="checkbox"
-                    onclick='facet_search(this);' {{facets[facet]['checked']}}>
-                    {{facet.replace('_', ' ')}} ({{facets[facet]['count']}})
+                    <input name="{{facet}}" class="facet" type="checkbox"
+                    onclick='facet_search(this);' {{data['checked']}}>
+                    {{facet.replace('_', ' ')}} ({{data['count']}})
                 </label>
             {% endfor %}
 
@@ -107,6 +108,11 @@
                     {% endif %}
                 {% endfor %}
             </div>
+            <label class='c-field c-field--choice'>
+                <input type='checkbox' onchange="$('#judge_name').toggle();">Judgement mode</label>
+            <label id='judge_name' class='c-field' style="display: none;">
+                <input id='judge_input' type='text' placeholder="Your name">
+            </label>
         </div>
     </main>
 </body>
