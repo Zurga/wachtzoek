@@ -115,10 +115,14 @@
                 {% endfor %}
             </div>
             <label class='c-field c-field--choice'>
-                <input type='checkbox' onchange="$('#judge_name').toggle();">Judgement mode</label>
-            <label id='judge_name' class='c-field' style="display: none;">
+                <input id='check_judge'type='checkbox' onchange="$('#judge_name').toggle();">Judgement mode
+            </label>
+            <label id='judge_name' class='c-field' style="display:none">
                 <input id='judge_input' type='text' placeholder="Your name">
             </label>
+
+            <script>
+            </script>
         </div>
     </main>
 </body>
