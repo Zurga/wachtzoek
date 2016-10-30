@@ -374,7 +374,7 @@ def get_scores():
 
         Evaluation['terms'][searchterm] = {}
         # return empty dict if no results
-        if result['hits']['hits'] == []:
+        if len(result['hits']['hits']) < 20:
             continue
 
         # get judg[e id's for serach query
