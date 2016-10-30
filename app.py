@@ -2,11 +2,12 @@ import requests
 import json
 import string
 import re
+import math
 
 from flask import Flask, render_template, request, jsonify
 from gensim.summarization import summarize as summ
 from gensim.summarization import keywords as kw
-from collections import Counter
+from collections import Counter, defaultdict
 from nltk.corpus import stopwords
 from nltk import word_tokenize
 from nltk.stem import SnowballStemmer
@@ -44,7 +45,6 @@ def toInt(i):
 
 @app.route('/api/score', methods=['POST'])
 def insert_score():
-    # dict = {query: [(id, 1)]}
     scoredict = request.form
     query = {
         'query': {
@@ -70,51 +70,91 @@ def tokenizer(s):
     """
     Tokenizes a string.
     """
+    s = re.sub(r"[^.,!;:A-z]+|Pagina|Advertentie", ' ', s.rstrip())
     tokens = [i.lower() for i in word_tokenize(s)
               if i.lower() not in stopwords.words('dutch')
-              and len(i) > 1 and re.match(r'^[a-zA-Z]+$', i)]
+              and len(i) > 2 and re.match(r'^[a-zA-Z]+$', i)]
     return tokens
 
-def summary_fixer(s):
+def describe(query, text):
     """
-    Makes the summaries look nicer.
+    Returns a fraction of a text based on
+    a query. Makes query terms bold.
     """
-    if not s:
-        return '<No summary available.>'
-    if not s.endswith('.'):
-        s += '.'
-    return s.capitalize() if len(s.split()) > 2 else '<No summary available.>'
+    # No proper tokenization here to keep structure
+    tokens = text.split()
+    query = '|'.join(query.lower().split())
+    s1 = "<strong>"
+    s2 = "</strong>"
 
-def summarize(text, word_count):
-    text = re.sub(r"[^.,!;:A-z]+|Pagina", ' ', text.rstrip())
+    strongified = [s1+t+s2 if re.match(query, t.lower()) else t for t in tokens]
+    enum = enumerate(strongified)
 
-    try:
-        s = summ(text, word_count=word_count)
-    except:
-        try:
-            s = kw(text, words=word_count)
-        except:
-            s = ' '.join([i for i in text.split()][:word_count])
+    indices = []
+    print(strongified)
+    for i, token in enum:
+        if token.startswith('<'):
+            if len(indices) == 0:
+                indices.append(i)
+            else:
+                if abs(indices[-1] - i) > 10:
+                    indices.append(i)
 
-    return summary_fixer(s)
+    snippits = [' '.join(['...'] + strongified[i-15:i+15] + ['...']) for i in indices]
+    description = ' '.join(snippits)
+    if len(description) > 15:
+        return description
+    else:
+        return "No description available."
 
-def wordcloud_gen(summaries, query):
+
+
+
+def wordcloud_gen(texts, query):
+
     def n(i, maxi, mini):
-        if i == 1:
-            return 1.85
-        n = (i - mini) / (maxi - mini)
-        return int(n * 15)
+        """
+        Normalizes.
+        """
+        return (i - mini) / (maxi - mini)
 
-    summaries = [i for i in summaries if ">" not in i]
-    tokens = [token for summary in summaries
-                for token in tokenizer(summary)
-                    if token not in query.split()]
-    counted = Counter(tokens).items()
-    maxi = max(y for x,y in counted)
-    mini = min(y for x,y in counted)
-    wc = [[x, n(y, maxi, mini)] for x,y in counted]
+    def idf(df, texts, term):
+        """
+        Given a single query term score the term using idf.
+        """
+        try:
+            return math.log(len(texts), df[term])
+        except ZeroDivisionError:
+            return 0.0
 
-    return sorted(wc, key=lambda x: x[1], reverse=True)[:WORDCLOUD_SIZE]
+    texts_tokenized = [tokenizer(text) for text in texts]
+    all_tokens = [token for text in texts_tokenized for token in text
+                    if token not in query.split() + ['pagina']]
+
+    # Build inverse document frequency
+    df = defaultdict(dict)
+    for t in set(all_tokens):
+        df[t] = sum(1 for text in texts_tokenized if t in text)
+
+    counted = Counter(all_tokens).items()
+    scores = [(term, count + (idf(df, texts, term)*2)) for term, count in counted]
+    maxi = max(y for x,y in scores)
+    mini = min(y for x,y in scores)
+
+    wc = [[x, n(y, maxi, mini)]  for x, y in scores]
+
+    if max(wc, key=lambda x: x[1])[1] < 10:
+        wc = list(map(lambda x: [x[0], x[1]*7.75], wc))
+
+    elif max(wc, key=lambda x: x[1])[1] < 6:
+        wc = list(map(lambda x: [x[0], x[1]*12.25], wc))
+
+    elif max(wc, key=lambda x: x[1])[1] < 4:
+        wc = list(map(lambda x: [x[0], x[1]*15], wc))
+
+    wordcloud = sorted(wc, key=lambda x: x[1], reverse=True)[:WORDCLOUD_SIZE]
+
+    return wordcloud
 
 
 def paginate(docs, per_page=10):
@@ -222,13 +262,21 @@ def search(page):
         ids = [d.get('_id') for d in docs]
         # titles = [d.get('_source', {}).get('title', '<No title available.>') for d in docs]
         texts = [d.get('_source', {}).get('text', '') for d in docs]
-        for d in docs:
-            d['summary'] = summarize(d['_source'].get('text', ''), word_count=SUMMARIES_SIZE)
+        # for d in docs:
+        #     d['summary'] = summarize(d['_source'].get('text', ''), word_count=SUMMARIES_SIZE)
 
-        # Summaries for the wordclouds
-        wtexts = (i.get('_source', {}).get('text', '') for i in docs)
-        wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-        wordcloud = wordcloud_gen(wsummaries, searchterm)
+        ###########################################################
+        # TODO FIX DESCRIPTIONS HERE
+        for d in docs:
+            d['description'] = describe(searchterm, d['_source'].get('text', ''))
+
+        ###########################################################
+
+        # For RESULT_SIZE.
+        # Wordcloud only, 'summaries' aren't used on resultpage anymore.
+        # We now use descriptions, with hightlighted words.
+        wtexts = [i.get('_source', {}).get('text', '') for i in docs]
+        wordcloud = wordcloud_gen(wtexts, searchterm)
 
         # create the timeline data for the graph
         startdate, enddate = toInt(startdate), toInt(enddate)
@@ -242,8 +290,6 @@ def search(page):
         # Facets data gathering
         types = ((t.get('key').replace('_', ' '), t.get('doc_count')) for t in
                       aggregations.get('types', {}).get('buckets', []))
-
-        print(types)
 
         data = {
             'timeline_years': timeline_years,
