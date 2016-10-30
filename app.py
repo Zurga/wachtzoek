@@ -101,7 +101,7 @@ def describe(query, text):
                     indices.append(i)
 
     snippits = [' '.join(['...'] + strongified[i-15:i+15] + ['...']) for i in indices]
-    description = ' '.join(snippits)
+    description = ' '.join(snippits[:2])
     if len(description) > 15:
         return description
     else:
