@@ -3,8 +3,12 @@ function getModal(identifier) {
     $.get( "/modal", { id: identifier.id } , function(data) {
         $( ".modal-container" ).append(data);
         $( ".modal-container" ).css('visibility', 'visible');
-        if (!$('#judge_input').is('visible')){
-            $('.modal-container .judge-button').toggle();
+        console.log($('#check_judge').prop('checked'));
+        if ($('#check_judge').prop('checked')){
+            $('.modal-container .judge-button').css('visibility', 'visible');
+        }
+        else{
+            $('.modal-container .judge-button').css('visibility', 'hidden');
         }
         $( ".modal-container" ).show();
     });
