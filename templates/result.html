@@ -65,7 +65,7 @@
             <h2>Facets</h2>
             {% for facet, data in facets.items() %}
                 <label for="{{facet}}" class="c-field c-field--choice">
-                    <input name="{{facet}}" class="facet" type="checkbox"
+                    <input name="{{facet}}" id="{{facet}}" class="facet" type="checkbox"
                     onclick='facet_search(this);' {{data['checked']}}>
                     {{facet.replace('_', ' ')}} ({{data['count']}})
                 </label>
