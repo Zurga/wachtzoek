@@ -358,9 +358,11 @@ def modal():
 
 @app.route('/scores', methods=['GET'])
 def get_scores():
-    searchterms = request.args.get('queries')
-    searchterms = searchterms.split(",")
+    searchterms = request.args.getlist('queries')
     Evaluation = {'terms': {},'avg':0}
+
+    if not searchterms:
+        return render_template('no-result.html')
 
     for searchterm in searchterms:
         query = {'query': {'match': {'query': searchterm}},"size":50}
@@ -371,7 +373,7 @@ def get_scores():
         Evaluation['terms'][searchterm] = {}
         # return empty dict if no results
         if result['hits']['hits'] == []:
-            pass
+            continue
 
         # get judg[e id's for serach query
         judges = list({doc['_source']['judge'] for doc in result['hits']['hits']})
@@ -419,7 +421,7 @@ def get_scores():
 
         # Calculate the P@10 for both judges
         Evaluation['terms'][searchterm]['P10judge1'] = len(relevantdoc[judge1]['relevant'])/N
-        Evaluation['terms'][searchterm]['P10judge2'] = len(relevantdoc[judge2]['nonrelevant'])/N
+        Evaluation['terms'][searchterm]['P10judge2'] = len(relevantdoc[judge2]['relevant'])/N
 
         # Calculate the Cohen's kappa
         PA = (N11 + N00)/N
