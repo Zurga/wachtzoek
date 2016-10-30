@@ -177,7 +177,6 @@ def search(page):
         data = request.form
     elif request.method == 'GET':
         data = request.args
-        print(request.args.getlist('type'))
 
     searchterm = ' '.join(tokenizer(data.get('query', '')))
     startdate = data.get('from', '')
@@ -196,7 +195,7 @@ def search(page):
                         # match the following input in the fiels
                         "multi_match": {
                             "query": searchterm,
-                            'type': 'cross_fields',
+                            #type': 'cross_fields',
                             "fields": ["text", "title"]
                             }
                     },
@@ -238,7 +237,6 @@ def search(page):
     title_filter = {"term": { "title": title}}
     if title:
         query['query']['filtered']['filter'].append(title_filter)
-        print(query)
 
     if doc_type:
         filters = {'bool': {'should': []}}
@@ -248,13 +246,11 @@ def search(page):
                       facet_res.get('types', {}).get('buckets', [])}
         for t in doc_type:
             facets[t]['checked'] = 'checked="true"'
-            print(t)
             filters['bool']['should'].append({'term': {'type': t}})
         query['query']['filtered']['filter'].append(filters)
 
 
     res = es.search(index="telegraaf", body=query)
-    print(query)
     docs = res['hits']['hits']
     aggregations = res.get('aggregations')
 
@@ -263,9 +259,7 @@ def search(page):
         # for the pagination
         num_pages = round(num_docs / RESULT_SIZE)
         pagination_end = PAGINATION_SIZE + page
-        print('pag_end', pagination_end)
         overshoot = num_pages - pagination_end
-        print('overshoot', overshoot)
         if overshoot < 0:
             pagination_end = num_pages
 
