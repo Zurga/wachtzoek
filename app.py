@@ -10,6 +10,7 @@ from collections import Counter
 from nltk.corpus import stopwords
 from nltk import word_tokenize
 from nltk.stem import SnowballStemmer
+from elasticsearch import Elasticsearch, client
 
 stemmer = SnowballStemmer('dutch')
 
@@ -29,7 +30,6 @@ if not r:
     exit()
 
 
-from elasticsearch import Elasticsearch, client
 es = Elasticsearch()
 indices_client = client.IndicesClient(es)
 if not indices_client.exists('telegraaf'):
@@ -49,7 +49,7 @@ def insert_score():
     query = {
         'query': {
             "bool": {
-                'should': [
+                'must': [
                     {'match': {
                         'query': scoredict['query']
                     }},
@@ -134,25 +134,21 @@ def index():
 @app.route('/result/page/<int:page>')
 def search(page):
     print(request.form)
-
     if request.method == 'POST':
-        searchterm = ' '.join(tokenizer(request.form.get('query', '')))
-        startdate = request.form.get('from', '')
-        enddate= request.form.get('to', '')
-        title = request.form.get('title', '')
-        current_page = int(request.form.get('current_page', 1)) - 1
+        data = request.form
+    elif request.method == 'GET':
+        data = request.args
 
-    if request.method == 'GET':
-        searchterm = ' '.join(tokenizer(request.args.get('query', '')))
-        startdate = request.args.get('from')
-        enddate= request.args.get('to', '')
-        title = request.args.get('title', '')
-        current_page = int(request.args.get('current_page', 1)) - 1
+    searchterm = ' '.join(tokenizer(data.get('query', '')))
+    startdate = data.get('from', '')
+    enddate = data.get('to', '')
+    title = data.get('title', '')
+    current_page = int(data.get('current_page', 1)) - 1
+    doc_type = data.get('type', '')
 
     if not searchterm:
         # TODO give feedback that the search failed
-        pass
-
+        return render_template('no-result.html')
 
     query = {"query": {
                 "filtered": {
@@ -160,6 +156,7 @@ def search(page):
                         # match the following input in the fiels
                         "multi_match": {
                             "query": searchterm,
+                            'type': 'cross_fields',
                             "fields": ["text", "title"]
                             }
                     },
@@ -175,9 +172,6 @@ def search(page):
                                 }
                             }
                         },
-
-                        #!!! not sure, filter on the title of term
-                        #'term' : {'title': title}
                         ]
                     }
                 },
@@ -194,18 +188,24 @@ def search(page):
                         "field" : "date",
                         "interval": "year",
                         }
+                    },
+                'types': {
+                    'terms': {'field': 'type'}
                     }
                 }
             }
 
-    title_filter = {"term": { "title": title} }
+    title_filter = {"term": { "title": title}}
     if title:
         query['query']['filtered']['filter'].append(title_filter)
+
+    doc_type_filter = {'term': {'type': doc_type}}
+    if doc_type:
+        query['query']['filtered']['filter'].append(doc_type_filter)
 
     res = es.search(index="telegraaf", body=query)
     docs = res['hits']['hits']
     aggregations = res.get('aggregations')
-
 
     if docs:
         num_docs = res['hits']['total']
@@ -219,43 +219,49 @@ def search(page):
             pagination_end = num_pages
 
         # Only current page!
-        results = docs
-        ids = [i.get('_id') for i in results]
-        titles = [i.get('_source', {}).get('title', '') for i in results]
-        titles = [t if len(t) else '<No title available.>' for t in titles]
-        texts = [i.get('_source', {}).get('text', '') for i in results]
-        summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
-        items = list(zip(ids, titles, summaries))
+        ids = [d.get('_id') for d in docs]
+        # titles = [d.get('_source', {}).get('title', '<No title available.>') for d in docs]
+        texts = [d.get('_source', {}).get('text', '') for d in docs]
+        for d in docs:
+            d['summary'] = summarize(d['_source'].get('text', ''), word_count=SUMMARIES_SIZE)
 
-        # For RESULT_SIZE.
-        wtexts = [i.get('_source', {}).get('text', '') for i in docs]
+        # Summaries for the wordclouds
+        wtexts = (i.get('_source', {}).get('text', '') for i in docs)
         wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
         wordcloud = wordcloud_gen(wsummaries, searchterm)
 
-
+        # create the timeline data for the graph
         startdate, enddate = toInt(startdate), toInt(enddate)
         timeline_years = list(range(startdate if startdate else 1918, enddate if enddate else 1995))
         timeline_data = dict([(int(a.get('key_as_string')[:4]), a.get('doc_count'))
                                 for a in aggregations.get('dates', {}).get('buckets', [])])
 
+        # fill the data with zero's for the missing years
         timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
+
+        # Facets data gathering
+        types = ((t.get('key').replace('_', ' '), t.get('doc_count')) for t in
+                      aggregations.get('types', {}).get('buckets', []))
+
+        print(types)
 
         data = {
             'timeline_years': timeline_years,
             'timeline_data': ', '.join(map(str,timeline_data)),
-            'items': items,
+            'items': docs,
             'amount': num_docs,
             'wordcloud': wordcloud,
             'query_string': searchterm,
             'from_string': startdate,
             'to_string': enddate,
             'title_string': title,
-            'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
-            'pagination_current': page
+            'pagination_length': list(range(page - 1 if page - 1 != 0 else 1,
+                                            pagination_end)),
+            'pagination_current': page,
+            'facets': types,
         }
 
-        return render_template('result.html',
-                            data=data)
+        return render_template('result.html', data=data)
     return render_template('no-result.html')
 
 
