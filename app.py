@@ -263,12 +263,8 @@ def search(page):
         if overshoot < 0:
             pagination_end = num_pages
 
-        ###########################################################
-        # TODO FIX DESCRIPTIONS HERE
         for d in docs:
             d['description'] = describe(searchterm, d['_source'].get('text', ''))
-
-        ###########################################################
 
         # For RESULT_SIZE.
         # Wordcloud only, 'summaries' aren't used on resultpage anymore.
@@ -279,6 +275,8 @@ def search(page):
         # create the timeline data for the graph
         startdate, enddate = toInt(startdate), toInt(enddate)
         timeline_years = list(range(startdate if startdate else 1918, enddate if enddate else 1995))
+        if len(timeline_years) == 0:
+            timeline_years = [startdate]
         timeline_data = dict([(int(a.get('key_as_string')[:4]), a.get('doc_count'))
                                 for a in aggregations.get('dates', {}).get('buckets', [])])
 
