@@ -30,7 +30,6 @@
                         <button class="c-button c-button--brand"><i class="fa fa-fw fa-search c-icon"></i></button>
                     </div>
                 </div>
-
             <div class="o-grid">
                 <div class="advanced-input o-grid__cell o-grid__cell--width-15 o-field o-grid__cell--no-gutter">
                     <input id="from_string" name="from" class="c-field"
@@ -48,6 +47,7 @@
                            value="{{title}}">
                 </div>
             </div>
+            <a href="/result?query={{query}}">Reset zoekparameters</a>
         </div>
         <div class="o-grid__cell o-grid__cell--width-60 o-grid__cell--no-gutter" id="timeline"></div>
         </div>
@@ -94,6 +94,9 @@
         </div>
         <div class="c-pagination">
             <div class="c-pagination__controls">
+                {% if pagination[0] != 1 %}
+                    <a class="c-pagination__page" href="/result/page/1?query={{query}}&from={{from}}&to={{to}}&title={{title}}">1</a>
+                {% endif %}
                 {% for p in pagination %}
                     {% if p == current_page %}
                         <button class="c-pagination__page c-pagination__page--current">{{p}}</button>
