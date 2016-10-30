@@ -160,9 +160,9 @@ def search(page):
                             "fields": ["text", "title"]
                             }
                     },
-                    "filter" :{
+                    "filter" :[
                         # filter on date range gte >=, lte <=
-                        "range": {
+                        {"range": {
                             #!!! not sure if name is correct
                             "date": {
                                 "gte": '{}-01-01'.format(startdate if
@@ -170,10 +170,12 @@ def search(page):
                                 "lte": '{}-12-31'.format(enddate
                                                          if enddate else 1994)
                                 }
-                            },
+                            }
+                        },
+
                         #!!! not sure, filter on the title of term
                         #'term' : {'title': title}
-                        }
+                        ]
                     }
                 },
             "from": RESULT_SIZE * page,
@@ -184,53 +186,57 @@ def search(page):
             }
         }
     }
-
+    title_filter = {"term": { "title": title} }
+    if title:
+        query['query']['filtered']['filter'].append(title_filter)
     res = es.search(index="telegraaf", body=query)
     docs = res['hits']['hits']
-    num_docs = res['hits']['total']
-    # for the pagination
-    num_pages = round(num_docs / RESULT_SIZE)
-    pagination_end = PAGINATION_SIZE + page
-    print('pag_end', pagination_end)
-    overshoot = num_pages - pagination_end
-    print('overshoot', overshoot)
-    if overshoot < 0:
-        pagination_end = num_pages
+    if docs:
+        num_docs = res['hits']['total']
+        # for the pagination
+        num_pages = round(num_docs / RESULT_SIZE)
+        pagination_end = PAGINATION_SIZE + page
+        print('pag_end', pagination_end)
+        overshoot = num_pages - pagination_end
+        print('overshoot', overshoot)
+        if overshoot < 0:
+            pagination_end = num_pages
 
-    # Only current page!
-    results = docs
-    ids = [i.get('_id') for i in results]
-    titles = [i.get('_source', {}).get('title', '') for i in results]
-    titles = [t if len(t) else '<No title available.>' for t in titles]
-    texts = [i.get('_source', {}).get('text', '') for i in results]
-    summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
-    items = list(zip(ids, titles, summaries))
+        # Only current page!
+        results = docs
+        ids = [i.get('_id') for i in results]
+        titles = [i.get('_source', {}).get('title', '') for i in results]
+        titles = [t if len(t) else '<No title available.>' for t in titles]
+        texts = [i.get('_source', {}).get('text', '') for i in results]
+        summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
+        items = list(zip(ids, titles, summaries))
 
-    timeline_years = ["2010", "2011", "2012", "2013"]
-    timeline_data = [103, 99, 66, 200]
+        timeline_years = ["2010", "2011", "2012", "2013"]
+        timeline_data = [103, 99, 66, 200]
 
-    # For RESULT_SIZE.
-    wtexts = [i.get('_source', {}).get('text', '') for i in docs]
-    wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
-    wordcloud = wordcloud_gen(wsummaries, searchterm)
+        # For RESULT_SIZE.
+        wtexts = [i.get('_source', {}).get('text', '') for i in docs]
+        wsummaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in wtexts]
+        wordcloud = wordcloud_gen(wsummaries, searchterm)
 
 
-    data = {
-        'timeline_years': timeline_years,
-        'timeline_data': ', '.join(map(str,timeline_data)),
-        'items': items,
-        'amount': num_docs,
-        'wordcloud': wordcloud,
-        'query_string': searchterm,
-        'from_strng': startdate,
-        'to_string': enddate,
-        'title_string': title,
-        'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
-        'pagination_current': page
-    }
+        data = {
+            'timeline_years': timeline_years,
+            'timeline_data': ', '.join(map(str,timeline_data)),
+            'items': items,
+            'amount': num_docs,
+            'wordcloud': wordcloud,
+            'query_string': searchterm,
+            'from_strng': startdate,
+            'to_string': enddate,
+            'title_string': title,
+            'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
+            'pagination_current': page
+        }
 
-    return render_template('result.html',
-                           data=data)
+        return render_template('result.html',
+                            data=data)
+    return render_template('no-result.html')
 
 
 @app.route('/modal', methods=["GET"])
