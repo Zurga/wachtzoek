@@ -22,18 +22,15 @@ class Worker(Process):
             if token.isalpha():
                 yield token
 
-    def get_fields(self, parsed):
-#        if len(parsed) > 3:
-        date = parsed[0]
-        typ = parsed[1]
-        i = parsed[2]
-        title = ''
-
-        if len(parsed) == 4:
-            text = parsed[3]
-        else:
-            title = parsed[3]
-            text = ' '.join(t for t in parsed[4:])
+    def get_fields(self, elem):
+        namespaces = {'pm':'http://www.politicalmashup.nl',
+                    'dc': 'http://purl.org/dc/elements/1.1/'}
+        date = elem.xpath('pm:meta/dc:date', namespaces=namespaces)[0].text
+        typ = elem.xpath('pm:meta/dc:subject', namespaces=namespaces)[0].text
+        text = ' '.join(e.text for e in elem.xpath('pm:content/text/p',
+                                                   namespaces=namespaces)
+                        if e.text)
+        title = elem.xpath('pm:content/title', namespaces=namespaces)[0].text
 
         c_dict = {
             'date': date,
@@ -55,8 +52,8 @@ class Worker(Process):
             xml = self.in_q.get()
             if xml is None:
                 print('Stopping Worker, blegh i am ded')
+                print('parsed this many documents', self.num_docs)
                 break
-
 
             tag = '{http://www.politicalmashup.nl}root'
             tree = etree.iterparse(xml, events=('end',), tag=tag)
@@ -65,22 +62,18 @@ class Worker(Process):
 
             print('doing', xml)
             for event, elem in tree:
-                parsed = list(elem.itertext())
-                if len(parsed) > 3:
-                    actions.append(self.get_fields(parsed))
-
-            #actions = [self.get_fields(list(elem.itertext())) for
-            #           event, elem in tree]
+                actions.append(self.get_fields(elem))
+                elem.clear()
 
             self.num_docs += len(actions)
 
             try:
                 for ret in helpers.parallel_bulk(es, actions, thread_count=2,
-                                                chunk_size=200):
+                                                chunk_size=100):
                     del ret
-            except:
+            except Exception as e:
+                print(e, xml)
                 pass
-
 
             del tree
             del actions
@@ -88,6 +81,7 @@ class Worker(Process):
             if self.last == xml:
                 for i in range(self.num_p):
                     self.in_q.put(None)
+
             print('did', xml, 'in', time.time() - t, 'seconds')
 
 es = Elasticsearch('http://localhost:9200')
@@ -99,6 +93,11 @@ print('making index')
 settings = {"index": {
             "refresh_interval": -1,
             'number_of_replicas': 0
+            },
+            'indices': {
+                'memory': {
+                    'index_buffer_size': 512
+                }
             },
         }
 
@@ -138,7 +137,6 @@ for worker in workers:
     worker.join()
 
 num_docs = sum(w.num_docs for w in workers)
-print(num_docs, 'documenten geindexeerd')
 print('Nog even goed instellen :D')
 indices_client.put_settings({"index": {"refresh_interval": "1s",
                                        'number_of_replicas': 0}}, 'telegraaf')
