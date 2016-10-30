@@ -22,7 +22,6 @@ var options = {list: {{ wordcloud|safe }},
  backgroundColor: 'white' };
 WordCloud(document.getElementById('canvas'), options );
 
-
 function facetRedir(d, index) {
     var query = $('#query_string')[0].value;
     var from = $('#from_string')[0].value;
@@ -85,4 +84,5 @@ function facet_search() {
     window.location.href = url;
 }
 $('#judge_input').off('keydown').off('blur');
+
 </script>

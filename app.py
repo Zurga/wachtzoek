@@ -180,6 +180,7 @@ def search(page):
         data = request.form
     elif request.method == 'GET':
         data = request.args
+        print(request.args.getlist('type'))
 
     searchterm = ' '.join(tokenizer(data.get('query', '')))
     startdate = data.get('from', '')
@@ -252,6 +253,7 @@ def search(page):
 
     if doc_type:
         filters = {'bool': {'should': []}}
+
         # Get the aggregation data for the facets that have not been enabled.
         facet_res = es.search(index='telegraaf', body=query).get('aggregations')
         facets = {t.get('key'): {'count': t.get('doc_count'),
@@ -264,6 +266,7 @@ def search(page):
 
 
     res = es.search(index="telegraaf", body=query)
+    print(query)
     docs = res['hits']['hits']
     aggregations = res.get('aggregations')
 
@@ -295,7 +298,6 @@ def search(page):
 
         # fill the data with zero's for the missing years
         timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
-
 
         # Facets data gathering
         if not doc_type:

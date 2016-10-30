@@ -68,9 +68,8 @@
                     <input name="{{facet}}" id="{{facet}}" class="facet" type="checkbox"
                     onclick='facet_search(this);' {{data['checked']}}>
                     {{facet.replace('_', ' ')}} ({{data['count']}})
-                </label>
+                 </label>
             {% endfor %}
-
           </div>
           <div class="resultlist o-grid__cell">
               {% if amount != 1 %}
