@@ -283,12 +283,14 @@ def search(page):
         # fill the data with zero's for the missing years
         timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
 
+
         # Facets data gathering
         if not doc_type:
             facets = {t.get('key'): {'count': t.get('doc_count'),
                                                     'checked': ''} for t in
                         aggregations.get('types', {}).get('buckets', [])}
 
+        # facets = {}
         data = {
             'timeline_years': timeline_years,
             'timeline_data': ', '.join(map(str,timeline_data)),
@@ -306,7 +308,18 @@ def search(page):
         }
 
         return render_template('result.html', data=data)
-    return render_template('no-result.html')
+
+    wordcloud = [['oeps', 10], ['oh jee', 5], ['sorry', 3], ['vervelend', 2],
+                 ['opnieuw', 1]]
+    data = {
+        'amount': 0,
+        'wordcloud': wordcloud,
+        'query_string': searchterm,
+        'from_string': startdate,
+        'to_string': enddate,
+        'title_string': title,
+    }
+    return render_template('no-result.html', data=data)
 
 
 @app.route('/modal', methods=["GET"])
