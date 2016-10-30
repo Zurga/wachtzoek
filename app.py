@@ -184,8 +184,17 @@ def search(page):
     doc_type = data.getlist('type')
 
     if not searchterm:
-        # TODO give feedback that the search failed
-        return render_template('no-result.html')
+        wordcloud = [['oeps', 10], ['oh jee', 5], ['sorry', 3], ['vervelend', 2],
+                     ['opnieuw', 1]]
+        data = {
+            'amount': 0,
+            'wordcloud': wordcloud,
+            'query_string': searchterm,
+            'from_string': startdate,
+            'to_string': enddate,
+            'title_string': title,
+        }
+        return render_template('no-result.html', data=data)
 
     query = {"query": {
                 "filtered": {
@@ -317,6 +326,7 @@ def search(page):
         'to_string': enddate,
         'title_string': title,
     }
+
     return render_template('no-result.html', data=data)
 
 
