@@ -9,6 +9,7 @@
 {% set to = data['to_string'] %}
 {% set pagination = data['pagination_length'] %}
 {% set current_page = data['pagination_current'] %}
+{% set facets = data['facets'] %}
 
 <div class="modal-container"></div>
 
@@ -55,12 +56,12 @@
         <div class="results o-grid">
           <div class="facets o-grid__cell o-grid__cell--width-20 o-grid__cell--width-15@large">
             <h2>Facets</h2>
-            <label class="c-field c-field--choice">
-              <input type="checkbox"> Article (500)
-            </label>
-            <label class="c-field c-field--choice">
-              <input type="checkbox"> Advertisement (over 9000)
-            </label>
+            {% for type, count in facets %}
+                <label for="{{type}}" class="c-field c-field--choice">
+                    <input name="{{type}}" type="checkbox" onclick='facet_search(this);'>
+                        {{type}} ({{count}})
+                </label>
+            {% endfor %}
 
           </div>
           <div class="resultlist o-grid__cell">
@@ -73,10 +74,10 @@
 
               {% for item in items %}
                 <div class="resultitem">
-                    <h3><a id="{{item[0]}}"
-                           onclick="getModal(this);"
-                           >{{item[1]}}</a></h3>
-                    <h5>{{item[2]}}</h5>
+                    <h3><a id="{{item['_id']}}" onclick="getModal(this);" >
+                            {{item['_source']['title']}}</a>
+                    </h3><span>{{item['_source']['date']}}</span>
+                    <h5>{{item['summary']}}</h5>
                 </div>
               {% endfor %}
           </div>
