@@ -89,7 +89,11 @@
               {% for item in items %}
                 <div class="resultitem">
                     <a id="{{item['_id']}}" onclick="getModal(this);" >
-                        <h3>{{item['_source']['title']}}</h3>
+                        {% if item['_source']['title'] %}
+                            <h3>{{item['_source']['title']}}</h3>
+                        {% else %}
+                            <h3>No title defined</h3>
+                        {% endif %}
                         <h4>{{item['_source']['date']}}</h4>
                         <h5>{{item['description']|safe}}</h5>
                     </a>
