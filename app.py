@@ -64,7 +64,7 @@ def insert_score():
     if not exists['hits']['hits']:
         es.index(index='score', body=scoredict, doc_type='score')
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
-    return json.dumps({'succes': False}), 200, {'ContentType':'application/json'}
+    return json.dumps({'success': False}), 200, {'ContentType':'application/json'}
 
 def tokenizer(s):
     """
@@ -105,8 +105,6 @@ def describe(query, text):
         return description
     else:
         return "No description available."
-
-
 
 
 def wordcloud_gen(texts, query):
@@ -328,15 +326,10 @@ def modal():
     # prop tekst en metadata in template (jinja)
     # geef template terug met render_template
     doc_id = request.args.get('id')
-    query = {
-        'query': {
-            'match': {
-                '_id': doc_id
-            }
-        }
-    }
+    query = {'query': {'match': {'_id': doc_id}}}
 
-    doc = es.search(index="telegraaf", body=query).get('hits', {}).get('hits', [''])[0].get('_source')
+    doc = es.search(index="telegraaf",
+                    body=query).get('hits', {}).get('hits', [''])[0].get('_source')
 
     data = {
         'doc_id': doc_id,
@@ -351,11 +344,10 @@ def modal():
 def get_scores():
     searchterms = request.args.get('queries')
     searchterms = searchterms.split(",")
-    Evaluation = {'terms':{},'avg':0}
+    Evaluation = {'terms': {},'avg':0}
 
     for searchterm in searchterms:
-
-        query = { 'query':{ 'match': { 'query': searchterm } } }
+        query = {'query': {'match': {'query': searchterm}}}
         # get results based on the query
         result = es.search(index='score', body=query)
 
@@ -372,8 +364,12 @@ def get_scores():
             # get a dict with judge keys with
             # their relevant  and nonrelevant labeled docs
             # {j1:{relevant:[d1,d4,d5],nonrelevant:[d2,d3]},j2:..}
-            relevantdoc = {judge1:{relevant:[],nonrelevant:[]},
-                            judge2:{relevant:[],nonrelevant:[]}}
+            relevantdoc = {
+                judge1: {'relevant': [],
+                        'nonrelevant': []},
+                judge2: {'relevant': [],
+                        'nonrelevant': []}
+            }
 
             for hit in result['hits']['hits']:
                 if hit['relevant'] == 1:
@@ -385,14 +381,19 @@ def get_scores():
 
             N11, N10, N01, N00 = 0
             for docID in docIDs:
-                if docID in relevantdoc[judge1]['relevant'] and docID in relevantdoc[judge2]['relevant']:
+                if docID in relevantdoc[judge1]['relevant'] and \
+                        docID in relevantdoc[judge2]['relevant']:
                     N11 += 1
-                if docID in relevantdoc[judge1]['relevant'] and docID in relevantdoc[judge2]['nonrelevant']:
+                if docID in relevantdoc[judge1]['relevant'] and \
+                        docID in relevantdoc[judge2]['nonrelevant']:
                     N10 += 1
-                if docID in relevantdoc[judge1]['nonrelevant'] and docID in relevantdoc[judge2]['relevant']:
+                if docID in relevantdoc[judge1]['nonrelevant'] and \
+                        docID in relevantdoc[judge2]['relevant']:
                     N01 += 1
-                if docID in relevantdoc[judge1]['nonrelevant'] and docID in relevantdoc[judge2]['nonrelevant']:
+                if docID in relevantdoc[judge1]['nonrelevant'] and \
+                        docID in relevantdoc[judge2]['nonrelevant']:
                     N00 += 1
+
             N = N11 + N10 + N01 + N00
 
             # Calculate the P@10 for both judges
