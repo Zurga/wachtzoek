@@ -300,6 +300,7 @@ def search(page):
                                                     'checked': ''} for t in
                         aggregations.get('types', {}).get('buckets', [])}
 
+        # facets = {}
         data = {
             'timeline_years': timeline_years,
             'timeline_data': ', '.join(map(str,timeline_data)),
