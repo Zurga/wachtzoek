@@ -4,8 +4,10 @@ body {
     /*overflow-y: hidden;*/
 }
 
-a {
+a, a:hover, a:visited, a:link, a:active {
     cursor: pointer !important;
+    text-decoration: none !important;
+    color: inherit !important;
 }
 
 .c-button {
@@ -25,7 +27,7 @@ a {
 
 .search-result {
     padding-top: 0.5em;
-    height: 13em;
+    height: 14em;
     border-bottom: 3px solid grey;
 }
 
@@ -66,7 +68,7 @@ a {
 }
 
 .results {
-    padding-top: 2.8em;
+    padding-top: 2.9em;
     /*height: 100em; // FIX THIS!*/
     margin: 0;
     /*background-color: white;*/
@@ -106,10 +108,6 @@ h5 {
     padding: 0;
     padding-left: 0.3em;
     padding-top: 2.5em;
-}
-
-.c3-axis-x .tick {
-    font-size: 8pt;
 }
 
 /*Pagination*/

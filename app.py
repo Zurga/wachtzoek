@@ -38,6 +38,9 @@ if not indices_client.exists('telegraaf'):
 
 app = Flask(__name__, static_path='/static/')
 
+def toInt(i):
+    return int(i) if i else i
+
 
 @app.route('/api/score', methods=['POST'])
 def insert_score():
@@ -98,7 +101,7 @@ def summarize(text, word_count):
 def wordcloud_gen(summaries, query):
     def n(i, maxi, mini):
         if i == 1:
-            return 1.75
+            return 1.85
         n = (i - mini) / (maxi - mini)
         return int(n * 15)
 
@@ -134,15 +137,15 @@ def search(page):
 
     if request.method == 'POST':
         searchterm = ' '.join(tokenizer(request.form.get('query', '')))
-        startdate = request.form.get('from')
-        enddate= request.form.get('to', '1994')
+        startdate = request.form.get('from', '')
+        enddate= request.form.get('to', '')
         title = request.form.get('title', '')
         current_page = int(request.form.get('current_page', 1)) - 1
 
     if request.method == 'GET':
         searchterm = ' '.join(tokenizer(request.args.get('query', '')))
         startdate = request.args.get('from')
-        enddate= request.args.get('to', '1994')
+        enddate= request.args.get('to', '')
         title = request.args.get('title', '')
         current_page = int(request.args.get('current_page', 1)) - 1
 
@@ -181,19 +184,28 @@ def search(page):
             "sort": {
                 "_score": {
                     "order": "desc"
+                    }
+                },
+            "aggs" : {
+                "dates": {
+                    "date_histogram" : {
+                        "field" : "date",
+                        "interval": "year",
+                        }
+                    }
+                }
             }
-        }
-    }
 
     res = es.search(index="telegraaf", body=query)
     docs = res['hits']['hits']
+    aggregations = res.get('aggregations')
     num_docs = res['hits']['total']
     # for the pagination
     num_pages = round(num_docs / RESULT_SIZE)
     pagination_end = PAGINATION_SIZE + page
-    print('pag_end', pagination_end)
+    # print('pag_end', pagination_end)
     overshoot = num_pages - pagination_end
-    print('overshoot', overshoot)
+    # print('overshoot', overshoot)
     if overshoot < 0:
         pagination_end = num_pages
 
@@ -206,8 +218,17 @@ def search(page):
     summaries = [summarize(t, word_count=SUMMARIES_SIZE) for t in texts]
     items = list(zip(ids, titles, summaries))
 
-    timeline_years = ["2010", "2011", "2012", "2013"]
-    timeline_data = [103, 99, 66, 200]
+    # timeline
+    query['size'] = 9000
+    docs_full = es.search(index="telegraaf", body=query)['hits']['hits']
+    print(len(docs_full))
+
+    startdate, enddate = toInt(startdate), toInt(enddate)
+    timeline_years = list(range(startdate if startdate else 1918, enddate if enddate else 1995))
+    timeline_data = dict([(int(a.get('key_as_string')[:4]), a.get('doc_count'))
+                            for a in aggregations.get('dates', {}).get('buckets', [])])
+
+    timeline_data = [timeline_data.get(y, 0) for y in timeline_years]
 
     # For RESULT_SIZE.
     wtexts = [i.get('_source', {}).get('text', '') for i in docs]
@@ -222,13 +243,14 @@ def search(page):
         'amount': num_docs,
         'wordcloud': wordcloud,
         'query_string': searchterm,
-        'from_strng': startdate,
+        'from_string': startdate,
         'to_string': enddate,
         'title_string': title,
         'pagination_length': list(range(page - 1 if page - 1 != 0 else 1, pagination_end)),
         'pagination_current': page
     }
 
+    print(startdate, enddate)
     return render_template('result.html',
                            data=data)
 

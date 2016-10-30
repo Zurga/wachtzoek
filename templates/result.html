@@ -17,7 +17,7 @@
     <main class="u-center-block search-result">
         <div class="o-grid">
             <div class="actual-advanced-search o-grid__cell o-grid__cell--width-40">
-            <h1 class="c-heading search-title">Telegraaf Search</h1>
+            <h1 class="c-heading search-title"><a href="/">Telegraaf Search</a></h1>
             <form action="/result" method="POST">
                 <div class="o-form-element">
                     <div class="c-input-group">
@@ -33,12 +33,12 @@
             <div class="o-grid">
                 <div class="advanced-input o-grid__cell o-grid__cell--width-15 o-field o-grid__cell--no-gutter">
                     <input id="from_string" name="from" class="c-field"
-                           type="number" min="1900" nax="2015" placeholder="From ..."
+                           type="number" min="1918" max="1993" placeholder="From ..."
                            value="{{from}}">
                 </div>
                 <div class="advanced-input o-grid__cell o-grid__cell--width-15 o-field o-grid__cell--no-gutter">
                     <input id="to_string" name="to" class="c-field"
-                           type="number" min="1901" max="2016" placeholder="To ..."
+                           type="number" min="1919" max="1994" placeholder="To ..."
                            value="{{to}}">
                 </div>
                 <div class="advanced-input o-grid__cell o-grid__cell--width-70 o-grid__cell--no-gutter"
@@ -92,7 +92,7 @@
                         <button class="c-pagination__page c-pagination__page--current">{{p}}</button>
                     {% else %}
                     <!--button class="c-pagination__page"-->
-                    <a href="/result/page/{{p}}?query={{query}}&from={{from}}&to={{to}}&title={{title}}">{{p}}</a>
+                    <a class="c-pagination__page" href="/result/page/{{p}}?query={{query}}&from={{from}}&to={{to}}&title={{title}}">{{p}}</a>
                     <!--/button-->
                     {% endif %}
                 {% endfor %}
