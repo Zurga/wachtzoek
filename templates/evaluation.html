@@ -24,13 +24,13 @@
                 <li>Cohen's Kappa: <b>{{ data['terms'][term]['CohensKappa'] }}</b></li>
                 <li>Precision @ 10 Judge 1: <b>{{ data['terms'][term]['P10judge1'] }}</b></li>
                 <li>Precision @ 10 Judge 2: <b>{{ data['terms'][term]['P10judge2'] }}</b></li>
-                <div id="{{term}}"></div>
+                <div id="{{term.replace(' ','-')}}"></div>
               </ul>
             {% endif %}
           </div>
           <script>
           var chart = c3.generate({
-              bindto: "#{{term}}",
+              bindto: "#{{term.replace(' ','-')}}",
               data: {
                   columns: [
                       ['judge1', {{data['terms'][term]['P10judge1']|safe}}],
