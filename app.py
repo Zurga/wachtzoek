@@ -358,9 +358,14 @@ def modal():
 
     return render_template('modal.html', data=data)
 
-@app.route('/scores', methods=['GET'])
+@app.route('/scores', methods=['GET', 'POST'])
 def get_scores():
-    searchterms = request.args.getlist('queries')
+    if request.method == 'POST':
+        data = request.form
+    elif request.method == 'GET':
+        data = request.args
+
+    searchterms = data.getlist('queries')
     Evaluation = {'terms': {},'avg':0}
 
     if not searchterms:
