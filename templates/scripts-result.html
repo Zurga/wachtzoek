@@ -21,7 +21,6 @@ var options = {list: {{ wordcloud|safe }},
  clearCanvas: 'true',
  backgroundColor: 'white' };
 WordCloud(document.getElementById('canvas'), options );
-
 function facetRedir(d, index) {
     var query = $('#query_string')[0].value;
     var from = $('#from_string')[0].value;
@@ -39,7 +38,6 @@ function facetRedir(d, index) {
     };
     window.location.href = url;
 };
-
 var timedata = [{{timeline_data|safe}}];
 var chart = c3.generate({
     bindto: '#timeline',
@@ -62,12 +60,10 @@ var chart = c3.generate({
         }
     }
 });
-
 d3.selectAll('.c3-event-rect')
   .on('click', function(value,index){
       facetRedir(value, index);
   });
-
 function facet_search() {
     var doc_type = '';
     var query = $('#query_string')[0].value;
@@ -84,5 +80,4 @@ function facet_search() {
     window.location.href = url;
 }
 $('#judge_input').off('keydown').off('blur');
-
 </script>

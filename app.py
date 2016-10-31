@@ -180,7 +180,7 @@ def search(page):
         data = request.form
     elif request.method == 'GET':
         data = request.args
-        print(request.args.getlist('type'))
+        request.args.getlist('type')
 
     searchterm = ' '.join(tokenizer(data.get('query', '')))
     startdate = data.get('from', '')
@@ -266,7 +266,6 @@ def search(page):
 
 
     res = es.search(index="telegraaf", body=query)
-    print(query)
     docs = res['hits']['hits']
     aggregations = res.get('aggregations')
 
@@ -362,6 +361,7 @@ def modal():
 def get_scores():
     searchterms = request.args.getlist('queries')
     Evaluation = {'terms': {},'avg':0}
+    print(searchterms)
 
     if not searchterms:
         return render_template('no-result.html')
@@ -370,7 +370,6 @@ def get_scores():
         query = {'query': {'match': {'query': searchterm}},"size":50}
         # get results based on the query
         result = es.search(index='score', body=query)
-        print(result['hits']['hits'])
 
         Evaluation['terms'][searchterm] = {}
         # return empty dict if no results
@@ -433,7 +432,7 @@ def get_scores():
         Evaluation['terms'][searchterm]['CohensKappa'] = (PA - PE)/(1 - PE)
         Evaluation['avg'] += Evaluation['terms'][searchterm]['P10judge1'] + Evaluation['terms'][searchterm]['P10judge2']
 
-    Evaluation['avg'] = Evaluation['avg'] / len(searchterms)
+    Evaluation['avg'] = Evaluation['avg'] / (2*len(searchterms))
     return render_template('evaluation.html', data=Evaluation)
 
 
